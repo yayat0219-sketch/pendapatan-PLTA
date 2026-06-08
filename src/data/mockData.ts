@@ -1,4 +1,4 @@
-import { RevenueRecord, ProductionRecord } from '../types';
+import { RevenueRecord, ProductionRecord, PSTerjualRecord } from '../types';
 import { generateId } from '../lib/utils';
 
 export const MOCK_DATA: RevenueRecord[] = [
@@ -35,4 +35,233 @@ export const MOCK_PRODUCTION_DATA: ProductionRecord[] = [
   { id: generateId(), month: 'April', year: 2026, plta: 88572820, miniHydro: 283000, pln: 35115754, dateAdded: new Date('2026-04-30').toISOString() },
   { id: generateId(), month: 'Mei', year: 2026, plta: 99621130, miniHydro: 720000, pln: 44185299, dateAdded: new Date('2026-05-31').toISOString() },
 ];
+
+const psRawData = [
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. INDOTAMA FERRO ALLOYS',
+    months: {
+      'Januari': { kwh: 29885655.93, rp: 23830523182.02 },
+      'Februari': { kwh: 26544339.22, rp: 21166190651.00 },
+      'Maret': { kwh: 26389479.07, rp: 21042706716.00 },
+      'April': { kwh: 32588811.00, rp: 25985992003.00 },
+      'Mei': { kwh: 33274723.70, rp: 26532931931.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. ELEGANT TEXTILE INDUSTRY',
+    months: {
+      'Januari': { kwh: 10503958.00, rp: 8703789677.96 },
+      'Februari': { kwh: 9980919.00, rp: 8270389102.00 },
+      'Maret': { kwh: 9621203.00, rp: 7972321230.00 },
+      'April': { kwh: 10805622.00, rp: 8953754502.00 },
+      'Mei': { kwh: 11044850.00, rp: 9151983607.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT INDONESIA LIBOLON FIBER SYSTEM',
+    months: {
+      'Januari': { kwh: 2374623.00, rp: 1967660110.26 },
+      'Februari': { kwh: 2098223.00, rp: 1738629542.00 },
+      'Maret': { kwh: 1591510.00, rp: 1431855360.00 },
+      'April': { kwh: 2017741.00, rp: 1671940547.00 },
+      'Mei': { kwh: 2012710.00, rp: 1667771760.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. INDORAMA SYNTHETICS Tbk',
+    months: {
+      'Januari': { kwh: 2375182.00, rp: 1968123308.84 },
+      'Februari': { kwh: 1789657.00, rp: 1482945583.00 },
+      'Maret': { kwh: 2074882.00, rp: 1719288723.00 },
+      'April': { kwh: 2155171.00, rp: 1785817794.00 },
+      'Mei': { kwh: 2372766.00, rp: 1966121363.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. BANGUNPERKASA ADHITAMASENTRA',
+    months: {
+      'Januari': { kwh: 1321682.00, rp: 1095172138.84 },
+      'Februari': { kwh: 1462167.00, rp: 1211580820.00 },
+      'Maret': { kwh: 1265033.00, rp: 1048231644.00 },
+      'April': { kwh: 1582713.00, rp: 1311467646.00 },
+      'Mei': { kwh: 1345237.00, rp: 1114690283.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. STARONE MITRA TELEKOMUNIKASI',
+    months: {
+      'Januari': { kwh: 644348.56, rp: 574623602.32 },
+      'Februari': { kwh: 590721.13, rp: 526799197.00 },
+      'Maret': { kwh: 668615.72, rp: 596264813.00 },
+      'April': { kwh: 650245.22, rp: 579882185.00 },
+      'Mei': { kwh: 677658.72, rp: 604329270.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. URASE PRIMA',
+    months: {
+      'Januari': { kwh: 176913.00, rp: 161559355.88 },
+      'Februari': { kwh: 164006.00, rp: 144846090.00 },
+      'Maret': { kwh: 111267.00, rp: 139276107.00 },
+      'April': { kwh: 160514.00, rp: 150417160.00 },
+      'Mei': { kwh: 181793.00, rp: 150637316.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PERUMDA AIR MINUM GAPURA TIRTA RAHAYU PURWAKARTA',
+    months: {
+      'Januari': { kwh: 210057.00, rp: 174057431.34 },
+      'Februari': { kwh: 184465.00, rp: 152851388.00 },
+      'Maret': { kwh: 198836.00, rp: 164759486.00 },
+      'April': { kwh: 194740.00, rp: 161365459.00 },
+      'Mei': { kwh: 208509.00, rp: 172774728.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. WIN TEXTILE',
+    months: {
+      'Januari': { kwh: 26504.00, rp: 21961744.48 },
+      'Februari': { kwh: 32414.00, rp: 26858889.00 },
+      'Maret': { kwh: 23582.00, rp: 19540517.00 },
+      'April': { kwh: 33024.00, rp: 27364347.00 },
+      'Mei': { kwh: 25328.00, rp: 20987287.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. INDACHI PRIMA',
+    months: {
+      'Januari': { kwh: 115828.00, rp: 95977397.36 },
+      'Februari': { kwh: 92410.00, rp: 78178971.00 },
+      'Maret': { kwh: 83385.00, rp: 75172572.00 },
+      'April': { kwh: 131632.00, rp: 109072908.00 },
+      'Mei': { kwh: 129701.00, rp: 107472843.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. TEKSTIL BANGKIT KEMBALI',
+    months: {
+      'Januari': { kwh: 289159.96, rp: 239603726.06 },
+      'Februari': { kwh: 214720.63, rp: 177921808.00 },
+      'Maret': { kwh: 158071.00, rp: 130980792.00 },
+      'April': { kwh: 174413.10, rp: 144522183.00 },
+      'Mei': { kwh: 179016.58, rp: 148336719.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'CV. 3 M ( Cilulumpang & Cinangka)',
+    months: {
+      'Januari': { kwh: 9074.00, rp: 8607953.15 },
+      'Februari': { kwh: 9140.00, rp: 7993101.00 },
+      'Maret': { kwh: 10382.00, rp: 8602733.00 },
+      'April': { kwh: 5856.00, rp: 8300527.00 },
+      'Mei': { kwh: 8878.00, rp: 8300527.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'SATKER BALAI BESAR WILAYAH SUNGAI CITARUM',
+    months: {
+      'Januari': { kwh: 1538.00, rp: 2091095.56 },
+      'Februari': { kwh: 1426.00, rp: 1938818.00 },
+      'Maret': { kwh: 1558.00, rp: 2118288.05 },
+      'April': { kwh: 2066.00, rp: 2808975.00 },
+      'Mei': { kwh: 1596.00, rp: 2169954.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'BALAI RISET PEMULIHAN SUMBER DAYA IKAN',
+    months: {
+      'Januari': { kwh: 1306.00, rp: 3746514.49 },
+      'Februari': { kwh: 2210.00, rp: 3358941.00 },
+      'Maret': { kwh: 2332.00, rp: 3229750.00 },
+      'April': { kwh: 2810.00, rp: 3820532.00 },
+      'Mei': { kwh: 2676.00, rp: 3638343.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT RAHARJA PUTRA PERKASA',
+    months: {
+      'Januari': { kwh: 606.40, rp: 716016.44 },
+      'Februari': { kwh: 594.60, rp: 687215.00 },
+      'Maret': { kwh: 774.60, rp: 895252.00 },
+      'April': { kwh: 958.30, rp: 1107565.00 },
+      'Mei': { kwh: 792.60, rp: 916055.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'PT. BANK TABUNGAN NEGARA (PERSERO) Tbk.',
+    months: {
+      'Januari': { kwh: 121.10, rp: 304832.00 },
+      'Februari': { kwh: 144.30, rp: 273293.00 },
+      'Maret': { kwh: 188.20, rp: 262812.00 },
+      'April': { kwh: 179.20, rp: 283818.00 },
+      'Mei': { kwh: 164.55, rp: 283826.00 }
+    }
+  },
+  {
+    category: 'INDUSTRI / PERUSAHAAN' as const,
+    customerName: 'KOPERASI KARYA BHAKTI RAHARJA',
+    months: {
+      'Januari': { kwh: 72.00, rp: 305120.64 },
+      'Februari': { kwh: 62.00, rp: 283323.00 },
+      'Maret': { kwh: 69.00, rp: 272424.00 },
+      'April': { kwh: 77.00, rp: 294222.00 },
+      'Mei': { kwh: 72.50, rp: 294222.00 }
+    }
+  },
+  {
+    category: 'PERUMAHAN & WARUNG' as const,
+    customerName: 'Penduduk (kWh Meter)',
+    months: {
+      'Januari': { kwh: 12408.00, rp: 7668470.00 },
+      'Februari': { kwh: 12496.00, rp: 7867724.00 },
+      'Maret': { kwh: 14459.00, rp: 9607759.00 },
+      'April': { kwh: 14370.00, rp: 9544338.00 },
+      'Mei': { kwh: 13843.00, rp: 9060198.00 }
+    }
+  },
+  {
+    category: 'PERUMAHAN & WARUNG' as const,
+    customerName: 'Penduduk (Listrik Prabayar)',
+    months: {
+      'Januari': { kwh: 136239.00, rp: 139661400.00 },
+      'Februari': { kwh: 127189.00, rp: 128164600.00 },
+      'Maret': { kwh: 155079.00, rp: 163201200.00 },
+      'April': { kwh: 146773.00, rp: 152209200.00 },
+      'Mei': { kwh: 149959.00, rp: 156977609.00 }
+    }
+  }
+];
+
+export const MOCK_PS_TERJUAL_DATA: PSTerjualRecord[] = [];
+psRawData.forEach((item, itemIdx) => {
+  Object.entries(item.months).forEach(([month, val]) => {
+    MOCK_PS_TERJUAL_DATA.push({
+      id: `ps_${itemIdx}_${month}`,
+      month,
+      year: 2026,
+      category: item.category,
+      customerName: item.customerName,
+      kwhValue: val.kwh,
+      rupiahValue: val.rp,
+      dateAdded: new Date('2026-05-31').toISOString()
+    });
+  });
+});
+
 

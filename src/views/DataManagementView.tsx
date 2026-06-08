@@ -1,36 +1,44 @@
 import React, { useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Filter } from 'lucide-react';
-import { RevenueRecord, ProductionRecord, MONTHS, DEFAULT_CATEGORIES } from '../types';
+import { RevenueRecord, ProductionRecord, PSTerjualRecord, MONTHS, DEFAULT_CATEGORIES } from '../types';
 import { formatRupiah, generateId } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface DataManagementViewProps {
   data: RevenueRecord[];
   productionData: ProductionRecord[];
+  psData: PSTerjualRecord[];
   onAddData: (row: RevenueRecord) => void;
   onUpdateData: (row: RevenueRecord) => void;
   onDeleteData: (id: string) => void;
   onAddProductionData: (row: ProductionRecord) => void;
   onUpdateProductionData: (row: ProductionRecord) => void;
   onDeleteProductionData: (id: string) => void;
+  onAddPsData: (row: PSTerjualRecord) => void;
+  onUpdatePsData: (row: PSTerjualRecord) => void;
+  onDeletePsData: (id: string) => void;
   categories: string[];
 }
 
 export function DataManagementView({ 
   data, 
   productionData, 
+  psData,
   onAddData, 
   onUpdateData, 
   onDeleteData, 
   onAddProductionData,
   onUpdateProductionData,
   onDeleteProductionData,
+  onAddPsData,
+  onUpdatePsData,
+  onDeletePsData,
   categories 
 }: DataManagementViewProps) {
-  const [activeTab, setActiveTab] = useState<'revenue' | 'production'>('revenue');
+  const [activeTab, setActiveTab] = useState<'revenue' | 'production' | 'ps_terjual'>('revenue');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingData, setEditingData] = useState<RevenueRecord | ProductionRecord | null>(null);
+  const [editingData, setEditingData] = useState<RevenueRecord | ProductionRecord | PSTerjualRecord | null>(null);
 
   // Form State
   const [month, setMonth] = useState(MONTHS[0]);
@@ -45,6 +53,12 @@ export function DataManagementView({
   const [plta, setPlta] = useState<string>('');
   const [miniHydro, setMiniHydro] = useState<string>('');
   const [pln, setPln] = useState<string>('');
+
+  // PS Terjual Form State
+  const [psCategory, setPsCategory] = useState<'INDUSTRI / PERUSAHAAN' | 'PERUMAHAN & WARUNG'>('INDUSTRI / PERUSAHAAN');
+  const [customerName, setCustomerName] = useState('');
+  const [kwhValue, setKwhValue] = useState<string>('');
+  const [rupiahValue, setRupiahValue] = useState<string>('');
 
   const filteredData = data.filter(item => 
     item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -63,6 +77,17 @@ export function DataManagementView({
     return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
   });
 
+  const filteredPsData = (psData || []).filter(item => 
+    item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.year.toString().includes(searchTerm)
+  ).sort((a, b) => {
+    if (a.year !== b.year) return b.year - a.year;
+    if (a.month !== b.month) return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+    return a.customerName.localeCompare(b.customerName);
+  });
+
   const openAddModal = () => {
     setEditingData(null);
     setMonth(MONTHS[0]);
@@ -71,15 +96,20 @@ export function DataManagementView({
       setCategory(categories[0] || DEFAULT_CATEGORIES[0]);
       setAmount('');
       setNotes('');
-    } else {
+    } else if (activeTab === 'production') {
       setPlta('');
       setMiniHydro('');
       setPln('');
+    } else {
+      setPsCategory('INDUSTRI / PERUSAHAAN');
+      setCustomerName('');
+      setKwhValue('');
+      setRupiahValue('');
     }
     setIsModalOpen(true);
   };
 
-  const openEditModal = (item: RevenueRecord | ProductionRecord) => {
+  const openEditModal = (item: RevenueRecord | ProductionRecord | PSTerjualRecord) => {
     setEditingData(item);
     setMonth(item.month);
     setYear(item.year);
@@ -89,11 +119,17 @@ export function DataManagementView({
       setCategory(revenueItem.category);
       setAmount(revenueItem.amount.toString());
       setNotes(revenueItem.notes || '');
-    } else {
+    } else if (activeTab === 'production') {
       const prodItem = item as ProductionRecord;
       setPlta(prodItem.plta.toString());
       setMiniHydro(prodItem.miniHydro.toString());
       setPln(prodItem.pln !== undefined && prodItem.pln !== null ? prodItem.pln.toString() : '');
+    } else {
+      const psItem = item as PSTerjualRecord;
+      setPsCategory(psItem.category);
+      setCustomerName(psItem.customerName);
+      setKwhValue(psItem.kwhValue.toString());
+      setRupiahValue(psItem.rupiahValue.toString());
     }
     setIsModalOpen(true);
   };
@@ -122,7 +158,7 @@ export function DataManagementView({
       } else {
         onAddData(record);
       }
-    } else {
+    } else if (activeTab === 'production') {
       if (plta === '' || isNaN(Number(plta))) {
         alert("Mohon isi produksi PLTA dengan angka yang valid.");
         return;
@@ -151,24 +187,57 @@ export function DataManagementView({
       } else {
         onAddProductionData(record);
       }
+    } else {
+      if (!customerName.trim()) {
+        alert("Mohon isi nama perusahaan atau pelanggan.");
+        return;
+      }
+      if (kwhValue === '' || isNaN(Number(kwhValue))) {
+        alert("Mohon isi jumlah kWh dengan angka yang valid.");
+        return;
+      }
+      if (rupiahValue === '' || isNaN(Number(rupiahValue))) {
+        alert("Mohon isi jumlah Rupiah dengan angka yang valid.");
+        return;
+      }
+
+      const record: PSTerjualRecord = {
+        id: editingData ? editingData.id : generateId(),
+        month,
+        year: Number(year),
+        category: psCategory,
+        customerName: customerName.trim(),
+        kwhValue: Number(kwhValue),
+        rupiahValue: Number(rupiahValue),
+        dateAdded: editingData ? (editingData as PSTerjualRecord).dateAdded : new Date().toISOString(),
+      };
+
+      if (editingData) {
+        onUpdatePsData(record);
+      } else {
+        onAddPsData(record);
+      }
     }
     
     setIsModalOpen(false);
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm(`Apakah Anda yakin ingin menghapus data ${activeTab === 'revenue' ? 'pendapatan' : 'produksi'} ini?`)) {
+    const tabName = activeTab === 'revenue' ? 'pendapatan' : activeTab === 'production' ? 'produksi' : 'PS Terjual';
+    if (window.confirm(`Apakah Anda yakin ingin menghapus data ${tabName} ini?`)) {
       if (activeTab === 'revenue') {
         onDeleteData(id);
-      } else {
+      } else if (activeTab === 'production') {
         onDeleteProductionData(id);
+      } else {
+        onDeletePsData(id);
       }
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1 sm:w-fit">
+      <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1 sm:w-fit gap-1">
         <button
           onClick={() => setActiveTab('revenue')}
           className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -188,6 +257,16 @@ export function DataManagementView({
           }`}
         >
           Data Produksi
+        </button>
+        <button
+          onClick={() => setActiveTab('ps_terjual')}
+          className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'ps_terjual' 
+              ? 'bg-indigo-600 text-white shadow-sm' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          PS Terjual & Penugasan
         </button>
       </div>
 
@@ -286,7 +365,7 @@ export function DataManagementView({
                 )}
               </tbody>
             </table>
-          ) : (
+          ) : activeTab === 'production' ? (
             <table className="w-full text-left">
               <thead className="bg-slate-800/50 text-slate-500 text-xs uppercase font-bold tracking-wider">
                 <tr>
@@ -335,7 +414,72 @@ export function DataManagementView({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
+                      <div className="flex flex-col items-center justify-center">
+                        <Filter className="h-10 w-10 text-slate-700 mb-3" />
+                        <p className="text-slate-400 font-medium text-base">Tidak ada data ditemukan</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-left">
+              <thead className="bg-slate-800/50 text-slate-500 text-xs uppercase font-bold tracking-wider">
+                <tr>
+                  <th scope="col" className="px-6 py-4">Periode</th>
+                  <th scope="col" className="px-6 py-4">Kategori</th>
+                  <th scope="col" className="px-6 py-4">Nama Pelanggan / Perusahaan</th>
+                  <th scope="col" className="px-6 py-4 text-right">Penyaluran (kWh)</th>
+                  <th scope="col" className="px-6 py-4 text-right">Pendapatan (Rupiah)</th>
+                  <th scope="col" className="px-6 py-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm text-slate-300">
+                {filteredPsData.length > 0 ? (
+                  filteredPsData.map((row) => (
+                    <tr key={row.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-white font-medium">
+                        {row.month} {row.year}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${
+                          row.category === 'INDUSTRI / PERUSAHAAN'
+                            ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        }`}>
+                          {row.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-200">
+                        {row.customerName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-indigo-400">
+                        {new Intl.NumberFormat('id-ID').format(row.kwhValue)} kWh
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-emerald-400">
+                        {formatRupiah(row.rupiahValue)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
+                        <button 
+                          onClick={() => openEditModal(row)}
+                          className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1"
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(row.id)}
+                          className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1"
+                        >
+                          Hapus
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
                       <div className="flex flex-col items-center justify-center">
                         <Filter className="h-10 w-10 text-slate-700 mb-3" />
                         <p className="text-slate-400 font-medium text-base">Tidak ada data ditemukan</p>
@@ -377,7 +521,7 @@ export function DataManagementView({
                     <div className="sm:flex sm:items-start">
                       <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                         <h3 className="text-lg leading-6 font-bold text-white mb-5" id="modal-title">
-                          {editingData ? `Edit Data ${activeTab === 'revenue' ? 'Pendapatan' : 'Produksi'}` : `Tambah Data ${activeTab === 'revenue' ? 'Pendapatan' : 'Produksi'}`}
+                          {editingData ? `Edit Data ${activeTab === 'revenue' ? 'Pendapatan' : activeTab === 'production' ? 'Produksi' : 'PS Terjual & Penugasan'}` : `Tambah Data ${activeTab === 'revenue' ? 'Pendapatan' : activeTab === 'production' ? 'Produksi' : 'PS Terjual & Penugasan'}`}
                         </h3>
                         
                         <div className="space-y-4">
@@ -450,7 +594,7 @@ export function DataManagementView({
                                 />
                               </div>
                             </>
-                          ) : (
+                          ) : activeTab === 'production' ? (
                             <>
                               <div>
                                 <label htmlFor="plta" className="block text-sm font-medium text-slate-400 mb-1">Produksi PLTA (kWh)</label>
@@ -486,6 +630,65 @@ export function DataManagementView({
                                   value={pln}
                                   onChange={(e) => setPln(e.target.value)}
                                   placeholder="Contoh: 37972050"
+                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
+                                  required
+                                  min="0"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <label htmlFor="psCategory" className="block text-sm font-medium text-slate-400 mb-1">Kategori Kelompok</label>
+                                <select
+                                  id="psCategory"
+                                  value={psCategory}
+                                  onChange={(e) => setPsCategory(e.target.value as any)}
+                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  required
+                                >
+                                  <option value="INDUSTRI / PERUSAHAAN">INDUSTRI / PERUSAHAAN</option>
+                                  <option value="PERUMAHAN & WARUNG">PERUMAHAN & WARUNG</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label htmlFor="customerName" className="block text-sm font-medium text-slate-400 mb-1">Nama Perusahaan / Pelanggan</label>
+                                <input
+                                  type="text"
+                                  id="customerName"
+                                  value={customerName}
+                                  onChange={(e) => setCustomerName(e.target.value)}
+                                  placeholder="Contoh: PT. INDOTAMA FERRO ALLOYS"
+                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="kwhValue" className="block text-sm font-medium text-slate-400 mb-1">Volume Penyaluran (kWh)</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  id="kwhValue"
+                                  value={kwhValue}
+                                  onChange={(e) => setKwhValue(e.target.value)}
+                                  placeholder="Contoh: 29885655.93"
+                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
+                                  required
+                                  min="0"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="rupiahValue" className="block text-sm font-medium text-slate-400 mb-1">Pendapatan Penjualan (Rupiah)</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  id="rupiahValue"
+                                  value={rupiahValue}
+                                  onChange={(e) => setRupiahValue(e.target.value)}
+                                  placeholder="Contoh: 23830523182"
                                   className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
                                   required
                                   min="0"

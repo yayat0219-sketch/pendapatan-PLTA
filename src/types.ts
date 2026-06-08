@@ -18,6 +18,17 @@ export interface ProductionRecord {
   dateAdded: string;
 }
 
+export interface PSTerjualRecord {
+  id: string;
+  month: string;
+  year: number;
+  category: 'INDUSTRI / PERUSAHAAN' | 'PERUMAHAN & WARUNG';
+  customerName: string;
+  kwhValue: number;
+  rupiahValue: number;
+  dateAdded: string;
+}
+
 export type ViewState = 'dashboard' | 'management' | 'settings';
 
 export const MONTHS = [

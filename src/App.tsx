@@ -4,13 +4,14 @@ import { DashboardView } from './views/DashboardView';
 import { DataManagementView } from './views/DataManagementView';
 import { SettingsView } from './views/SettingsView';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { ViewState, RevenueRecord, ProductionRecord, DEFAULT_CATEGORIES } from './types';
-import { MOCK_DATA, MOCK_PRODUCTION_DATA } from './data/mockData';
+import { ViewState, RevenueRecord, ProductionRecord, PSTerjualRecord, DEFAULT_CATEGORIES } from './types';
+import { MOCK_DATA, MOCK_PRODUCTION_DATA, MOCK_PS_TERJUAL_DATA } from './data/mockData';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [data, setData] = useLocalStorage<RevenueRecord[]>('revtrack-data', MOCK_DATA);
   const [productionData, setProductionData] = useLocalStorage<ProductionRecord[]>('revtrack-production-data-v3', MOCK_PRODUCTION_DATA);
+  const [psData, setPsData] = useLocalStorage<PSTerjualRecord[]>('revtrack-ps-data', MOCK_PS_TERJUAL_DATA);
   const [categories, setCategories] = useLocalStorage<string[]>('revtrack-categories', DEFAULT_CATEGORIES);
 
   const handleAddData = (record: RevenueRecord) => {
@@ -31,6 +32,7 @@ export default function App() {
 
   const handleClearData = () => {
     setData([]);
+    setPsData([]);
   };
 
   return (
@@ -42,6 +44,7 @@ export default function App() {
         <DataManagementView 
           data={data} 
           productionData={productionData}
+          psData={psData}
           categories={categories}
           onAddData={handleAddData}
           onUpdateData={handleUpdateData}
@@ -49,6 +52,9 @@ export default function App() {
           onAddProductionData={(record) => setProductionData([...productionData, record])}
           onUpdateProductionData={(updated) => setProductionData(productionData.map(item => item.id === updated.id ? updated : item))}
           onDeleteProductionData={(id) => setProductionData(productionData.filter(item => item.id !== id))}
+          onAddPsData={(record) => setPsData([...psData, record])}
+          onUpdatePsData={(updated) => setPsData(psData.map(item => item.id === updated.id ? updated : item))}
+          onDeletePsData={(id) => setPsData(psData.filter(item => item.id !== id))}
         />
       )}
       {currentView === 'settings' && (
