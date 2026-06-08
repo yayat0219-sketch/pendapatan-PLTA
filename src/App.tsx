@@ -38,7 +38,7 @@ export default function App() {
   return (
     <Layout currentView={currentView} onViewChange={setCurrentView}>
       {currentView === 'dashboard' && (
-        <DashboardView data={data} productionData={productionData} />
+        <DashboardView data={data} productionData={productionData} psData={psData} />
       )}
       {currentView === 'management' && (
         <DataManagementView 

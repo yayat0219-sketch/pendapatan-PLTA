@@ -3,18 +3,19 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { RevenueRecord, ProductionRecord, MONTHS } from '../types';
+import { RevenueRecord, ProductionRecord, PSTerjualRecord, MONTHS } from '../types';
 import { formatRupiah } from '../lib/utils';
 import { TrendingUp, Wallet, ArrowUpRight, BarChart2, PieChart as PieChartIcon, Zap } from 'lucide-react';
 
 interface DashboardViewProps {
   data: RevenueRecord[];
   productionData?: ProductionRecord[];
+  psData?: PSTerjualRecord[];
 }
 
 const COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
-export function DashboardView({ data, productionData = [] }: DashboardViewProps) {
+export function DashboardView({ data, productionData = [], psData = [] }: DashboardViewProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>('Semua');
 
   const filteredData = useMemo(() => {
@@ -79,6 +80,38 @@ export function DashboardView({ data, productionData = [] }: DashboardViewProps)
     });
   }, [data]);
 
+  // Aggregate data for PLN production trend chart
+  const plnProductionMonthlyData = useMemo(() => {
+    return MONTHS.map(month => {
+      const prodRecord = productionData.find(p => p.month === month);
+      return {
+        month,
+        pln: prodRecord ? prodRecord.pln : 0,
+      };
+    });
+  }, [productionData]);
+
+  // Aggregate data for non-PLN (Swasta + Penduduk) production trend chart
+  const psProductionMonthlyData = useMemo(() => {
+    return MONTHS.map(month => {
+      const monthRecords = psData.filter(p => p.month === month);
+      const swasta = monthRecords
+        .filter(r => r.category === 'INDUSTRI / PERUSAHAAN')
+        .reduce((sum, item) => sum + item.kwhValue, 0);
+      const penduduk = monthRecords
+        .filter(r => r.category === 'PERUMAHAN & WARUNG')
+        .reduce((sum, item) => sum + item.kwhValue, 0);
+      const total = swasta + penduduk;
+      
+      return {
+        month,
+        swasta,
+        penduduk,
+        total,
+      };
+    });
+  }, [psData]);
+
   // Aggregate data for Pie chart (Total by category)
   const categoryData = useMemo(() => {
     const agg = filteredData.reduce((acc, item) => {
@@ -96,15 +129,21 @@ export function DashboardView({ data, productionData = [] }: DashboardViewProps)
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white border hover:border-slate-300 shadow-xl rounded-lg p-3 text-sm">
-          <p className="font-semibold text-slate-900 mb-1">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={`item-${index}`} className="flex items-center gap-2 mb-1">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-slate-600 capitalize">{entry.name}:</span>
-              <span className="font-medium text-slate-900">{formatRupiah(entry.value)}</span>
-            </div>
-          ))}
+        <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-lg p-3 text-sm text-slate-300">
+          <p className="font-semibold text-white mb-1.5">{label}</p>
+          {payload.map((entry: any, index: number) => {
+            const isKwh = entry.unit === 'kWh' || entry.name.toLowerCase().includes('produksi') || entry.name.toLowerCase().includes('kwh');
+            const valueFormatted = isKwh 
+              ? `${new Intl.NumberFormat('id-ID').format(entry.value)} kWh` 
+              : formatRupiah(entry.value);
+            return (
+              <div key={`item-${index}`} className="flex items-center gap-2 mb-1 last:mb-0">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color || entry.stroke }} />
+                <span className="text-slate-400 capitalize">{entry.name}:</span>
+                <span className="font-semibold text-white">{valueFormatted}</span>
+              </div>
+            );
+          })}
         </div>
       );
     }
@@ -340,6 +379,125 @@ export function DashboardView({ data, productionData = [] }: DashboardViewProps)
                 strokeWidth={3}
                 dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* PT. PLN Production Line Chart */}
+      <div id="pln-prod-trend-chart" className="col-span-1 md:col-span-2 row-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 relative flex flex-col">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-white font-bold">Tren Produksi PT PLN</h3>
+            <p className="text-slate-500 text-[11px] mt-0.5">Tren volume penyaluran/produksi bulanan dalam kWh</p>
+          </div>
+          <div className="flex gap-2">
+            <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+            <div className="w-3 h-3 rounded-full bg-slate-700"></div>
+          </div>
+        </div>
+        <div className="flex-1 w-full relative min-h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={plnProductionMonthlyData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+              <XAxis 
+                dataKey="month" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                dy={10} 
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tickFormatter={(value) => `${new Intl.NumberFormat('id-ID').format(Math.round(value / 1000000))} jt`}
+                dx={-10}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Line 
+                type="monotone" 
+                dataKey="pln" 
+                name="Produksi PT PLN" 
+                unit="kWh"
+                stroke="#10b981" 
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Non-PLN (Swasta + Penduduk) Production Line Chart */}
+      <div id="non-pln-prod-trend-chart" className="col-span-1 md:col-span-2 row-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 relative flex flex-col">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-white font-bold">Tren Penyaluran Non-PLN</h3>
+            <p className="text-slate-500 text-[11px] mt-0.5">Tren penyaluran Swasta (Industri) & Penduduk</p>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="flex items-center gap-1.5 text-cyan-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+              Swasta
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+              Penduduk
+            </span>
+          </div>
+        </div>
+        <div className="flex-1 w-full relative min-h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={psProductionMonthlyData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+              <XAxis 
+                dataKey="month" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                dy={10} 
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tickFormatter={(value) => `${new Intl.NumberFormat('id-ID').format(Math.round(value / 1000000))} jt`}
+                dx={-10}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Line 
+                type="monotone" 
+                dataKey="swasta" 
+                name="Volume Swasta (Industri)" 
+                unit="kWh"
+                stroke="#22d3ee" 
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#22d3ee' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="penduduk" 
+                name="Volume Penduduk (Perumahan)" 
+                unit="kWh"
+                stroke="#fbbf24" 
+                strokeWidth={2}
+                dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#fbbf24' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="total" 
+                name="Total Non-PLN" 
+                unit="kWh"
+                stroke="#a78bfa" 
+                strokeWidth={2.5}
+                strokeDasharray="4 4"
+                dot={{ r: 3, strokeWidth: 1, fill: '#1e293b' }}
+                activeDot={{ r: 5, strokeWidth: 0, fill: '#a78bfa' }}
               />
             </LineChart>
           </ResponsiveContainer>
