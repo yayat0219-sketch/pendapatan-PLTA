@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Database, Settings, Menu, X, Droplets } from 'lucide-react';
 import { ViewState } from '../types';
+import { JasaTirtaLogo } from './JasaTirtaLogo';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -107,23 +108,28 @@ export function Layout({ currentView, onViewChange, children }: LayoutProps) {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto h-full flex flex-col">
             {/* Header */}
-            <header className="flex justify-between items-center mb-8 shrink-0">
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 shrink-0">
               <div className="flex items-center gap-4">
                 <button 
                   onClick={toggleMobileMenu}
-                  className="md:hidden text-slate-400 hover:text-white focus:outline-none"
+                  className="md:hidden text-slate-400 hover:text-white focus:outline-none shrink-0"
                 >
                   <Menu size={24} />
                 </button>
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight text-white capitalize">
+                  <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-white capitalize leading-tight">
                     {currentView === 'management' ? 'Kelola Data' : currentView === 'dashboard' ? 'Realisasi Produksi dan Pendapatan Listrik tahun 2026' : currentView}
                   </h1>
-                  <p className="text-slate-400 text-sm mt-1">
+                  <p className="text-slate-400 text-xs sm:text-sm mt-1">
                     {currentView === 'dashboard' ? 'Bagian Usaha Unit PLTA - PJT II' : currentView === 'management' ? 'Kelola daftar transaksi dan pemasukan Anda.' : 'Atur preferensi aplikasi Anda.'}
                   </p>
                 </div>
               </div>
+              {currentView === 'dashboard' && (
+                <div className="bg-white rounded-xl p-2 px-4.5 flex items-center justify-center shadow-md border border-slate-200 h-[52px] shrink-0 self-end sm:self-center">
+                  <JasaTirtaLogo className="h-10 w-auto" />
+                </div>
+              )}
             </header>
             {children}
           </div>
