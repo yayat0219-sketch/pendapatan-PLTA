@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Filter } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Filter, Download } from 'lucide-react';
 import { RevenueRecord, ProductionRecord, PSTerjualRecord, MONTHS, DEFAULT_CATEGORIES } from '../types';
 import { formatRupiah, generateId } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface DataManagementViewProps {
   data: RevenueRecord[];
@@ -235,6 +237,68 @@ export function DataManagementView({
     }
   };
 
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    if (activeTab === 'revenue') {
+      doc.text('Laporan Data Pendapatan', 14, 22);
+      
+      const head = [['Periode', 'Kategori Sumber', 'Pendapatan (Rp)', 'Catatan']];
+      const body = filteredData.map(row => [
+        `${row.month} ${row.year}`,
+        row.category,
+        formatRupiah(row.amount),
+        row.notes || '-'
+      ]);
+
+      autoTable(doc, {
+        startY: 30,
+        head: head,
+        body: body,
+      });
+      doc.save('data_pendapatan.pdf');
+      
+    } else if (activeTab === 'production') {
+      doc.text('Laporan Data Produksi', 14, 22);
+      
+      const head = [['Periode', 'Produksi PLTA (kWh)', 'Produksi Mini Hydro (kWh)', 'Produksi PLN (kWh)', 'Produksi PS (kWh)']];
+      const body = filteredProductionData.map(row => [
+        `${row.month} ${row.year}`,
+        new Intl.NumberFormat('id-ID').format(row.plta),
+        new Intl.NumberFormat('id-ID').format(row.miniHydro),
+        new Intl.NumberFormat('id-ID').format(row.pln || 0),
+        new Intl.NumberFormat('id-ID').format((row.plta + row.miniHydro) - (row.pln || 0)),
+      ]);
+
+      autoTable(doc, {
+        startY: 30,
+        head: head,
+        body: body,
+      });
+      doc.save('data_produksi.pdf');
+      
+    } else {
+      doc.text('Laporan Data PS Terjual & Penugasan', 14, 22);
+      
+      const head = [['Periode', 'Kategori', 'Nama Pelanggan / Perusahaan', 'Penyaluran (kWh)', 'Pendapatan (Rp)']];
+      const body = filteredPsData.map(row => [
+        `${row.month} ${row.year}`,
+        row.category,
+        row.customerName,
+        new Intl.NumberFormat('id-ID').format(row.kwhValue),
+        formatRupiah(row.rupiahValue),
+      ]);
+
+      autoTable(doc, {
+        startY: 30,
+        head: head,
+        body: body,
+      });
+      doc.save('data_ps_terjual.pdf');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1 sm:w-fit gap-1">
@@ -285,13 +349,22 @@ export function DataManagementView({
           />
         </div>
         
-        <button
-          onClick={openAddModal}
-          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-        >
-          <Plus className="mr-2 -ml-1 h-5 w-5" />
-          Tambah Data
-        </button>
+        <div className="flex w-full sm:w-auto gap-2">
+          <button
+            onClick={handleDownloadPDF}
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-slate-700 text-sm font-medium rounded-lg shadow-sm text-slate-300 bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            <Download className="mr-2 -ml-1 h-5 w-5" />
+            Unduh PDF
+          </button>
+          <button
+            onClick={openAddModal}
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            <Plus className="mr-2 -ml-1 h-5 w-5" />
+            Tambah Data
+          </button>
+        </div>
       </div>
 
       {/* Table */}
