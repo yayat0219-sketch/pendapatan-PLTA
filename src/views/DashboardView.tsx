@@ -20,11 +20,19 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
 
   const filteredData = useMemo(() => {
     if (selectedMonth === 'Semua') return data;
+    if (selectedMonth === 'Q1') return data.filter(d => ['Januari', 'Februari', 'Maret'].includes(d.month));
+    if (selectedMonth === 'Q2') return data.filter(d => ['April', 'Mei', 'Juni'].includes(d.month));
+    if (selectedMonth === 'Q3') return data.filter(d => ['Juli', 'Agustus', 'September'].includes(d.month));
+    if (selectedMonth === 'Q4') return data.filter(d => ['Oktober', 'November', 'Desember'].includes(d.month));
     return data.filter(d => d.month === selectedMonth);
   }, [data, selectedMonth]);
 
   const filteredProductionData = useMemo(() => {
     if (selectedMonth === 'Semua') return productionData;
+    if (selectedMonth === 'Q1') return productionData.filter(d => ['Januari', 'Februari', 'Maret'].includes(d.month));
+    if (selectedMonth === 'Q2') return productionData.filter(d => ['April', 'Mei', 'Juni'].includes(d.month));
+    if (selectedMonth === 'Q3') return productionData.filter(d => ['Juli', 'Agustus', 'September'].includes(d.month));
+    if (selectedMonth === 'Q4') return productionData.filter(d => ['Oktober', 'November', 'Desember'].includes(d.month));
     return productionData.filter(d => d.month === selectedMonth);
   }, [productionData, selectedMonth]);
 
@@ -33,10 +41,24 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
   const totalPln = useMemo(() => filteredData.filter(d => d.category === 'PLN (Persero)').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
   const totalPs = useMemo(() => filteredData.filter(d => d.category !== 'PLN (Persero)').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
 
+  // Filtering Scale factor to dynamically calculate active targets (Quarter = 1/4, Month = 1/12, Semua = 1)
+  const scaleFactor = useMemo(() => {
+    if (selectedMonth === 'Semua') return 1;
+    if (['Q1', 'Q2', 'Q3', 'Q4'].includes(selectedMonth)) return 0.25;
+    return 1 / 12;
+  }, [selectedMonth]);
+
   // RKAP Target Comparison (RKAP Target: Rp 612.174.500.594)
   const RKAP_TARGET = 612174500594;
-  const rkapPercentage = useMemo(() => (totalRevenue / RKAP_TARGET) * 100, [totalRevenue]);
-  const monthlyRkapPercentage = useMemo(() => (totalRevenue / (RKAP_TARGET / 12)) * 100, [totalRevenue]);
+  const currentRkapTarget = useMemo(() => RKAP_TARGET * scaleFactor, [scaleFactor]);
+  const rkapPercentageCurrent = useMemo(() => (totalRevenue / currentRkapTarget) * 100, [totalRevenue, currentRkapTarget]);
+  const annualRkapPercentage = useMemo(() => (totalRevenue / RKAP_TARGET) * 100, [totalRevenue]);
+
+  // RKAP Netto Target Comparison (RKAP Netto Target: Rp 576.942.988.460)
+  const RKAP_NETTO_TARGET = 576942988460;
+  const currentRkapNettoTarget = useMemo(() => RKAP_NETTO_TARGET * scaleFactor, [scaleFactor]);
+  const rkapNettoPercentageCurrent = useMemo(() => (totalRevenue / currentRkapNettoTarget) * 100, [totalRevenue, currentRkapNettoTarget]);
+  const annualRkapNettoPercentage = useMemo(() => (totalRevenue / RKAP_NETTO_TARGET) * 100, [totalRevenue]);
   
   // Aggregate production totals
   const totalPlta = useMemo(() => filteredProductionData.reduce((sum, item) => sum + item.plta, 0), [filteredProductionData]);
@@ -47,18 +69,21 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
 
   // RKAP Production Target comparison (RKAP Production Target: 984.544.147 kWh)
   const RKAP_PRODUCTION_TARGET = 984544147;
-  const productionRkapPercentage = useMemo(() => (totalProduction / RKAP_PRODUCTION_TARGET) * 100, [totalProduction]);
-  const monthlyProductionRkapPercentage = useMemo(() => (totalProduction / (RKAP_PRODUCTION_TARGET / 12)) * 100, [totalProduction]);
+  const currentProductionTarget = useMemo(() => RKAP_PRODUCTION_TARGET * scaleFactor, [scaleFactor]);
+  const productionRkapPercentageCurrent = useMemo(() => (totalProduction / currentProductionTarget) * 100, [totalProduction, currentProductionTarget]);
+  const annualProductionRkapPercentage = useMemo(() => (totalProduction / RKAP_PRODUCTION_TARGET) * 100, [totalProduction]);
 
   // RKAP PT PLN Production Target comparison (RKAP Target: 431.937.998 kWh)
   const RKAP_PLN_PRODUCTION_TARGET = 431937998;
-  const plnProductionRkapPercentage = useMemo(() => (totalPlnKwh / RKAP_PLN_PRODUCTION_TARGET) * 100, [totalPlnKwh]);
-  const monthlyPlnProductionRkapPercentage = useMemo(() => (totalPlnKwh / (RKAP_PLN_PRODUCTION_TARGET / 12)) * 100, [totalPlnKwh]);
+  const currentPlnProductionTarget = useMemo(() => RKAP_PLN_PRODUCTION_TARGET * scaleFactor, [scaleFactor]);
+  const plnProductionRkapPercentageCurrent = useMemo(() => (totalPlnKwh / currentPlnProductionTarget) * 100, [totalPlnKwh, currentPlnProductionTarget]);
+  const annualPlnProductionRkapPercentage = useMemo(() => (totalPlnKwh / RKAP_PLN_PRODUCTION_TARGET) * 100, [totalPlnKwh]);
 
   // RKAP PS & Terjual Production Target comparison (RKAP Target: 552.606.149 kWh)
   const RKAP_PS_PRODUCTION_TARGET = 552606149;
-  const psProductionRkapPercentage = useMemo(() => (totalPsKwh / RKAP_PS_PRODUCTION_TARGET) * 100, [totalPsKwh]);
-  const monthlyPsProductionRkapPercentage = useMemo(() => (totalPsKwh / (RKAP_PS_PRODUCTION_TARGET / 12)) * 100, [totalPsKwh]);
+  const currentPsProductionTarget = useMemo(() => RKAP_PS_PRODUCTION_TARGET * scaleFactor, [scaleFactor]);
+  const psProductionRkapPercentageCurrent = useMemo(() => (totalPsKwh / currentPsProductionTarget) * 100, [totalPsKwh, currentPsProductionTarget]);
+  const annualPsProductionRkapPercentage = useMemo(() => (totalPsKwh / RKAP_PS_PRODUCTION_TARGET) * 100, [totalPsKwh]);
 
   // Aggregate data for Line and Bar charts (Monthly totals)
   const monthlyData = useMemo(() => {
@@ -155,7 +180,7 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-lg font-bold text-white">Dashboard Statistik</h2>
         <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1.5 shadow-sm">
-          <label htmlFor="month-filter" className="text-sm font-medium text-slate-400 pl-2">Filter Bulan:</label>
+          <label htmlFor="month-filter" className="text-sm font-medium text-slate-400 pl-2">Filter Periode:</label>
           <select 
             id="month-filter" 
             value={selectedMonth} 
@@ -164,9 +189,17 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
             style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%22%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
           >
             <option value="Semua">Semua Waktu</option>
-            {MONTHS.map(m => (
-               <option key={m} value={m}>{m}</option>
-            ))}
+            <optgroup label="Pilihan Kuartal" className="text-indigo-400 bg-slate-900 font-semibold">
+              <option value="Q1" className="text-slate-200">Quartal 1 (Jan - Mar)</option>
+              <option value="Q2" className="text-slate-200">Quartal 2 (Apr - Jun)</option>
+              <option value="Q3" className="text-slate-200">Quartal 3 (Jul - Sep)</option>
+              <option value="Q4" className="text-slate-200">Quartal 4 (Okt - Des)</option>
+            </optgroup>
+            <optgroup label="Pilihan Bulan" className="text-indigo-400 bg-slate-900 font-semibold">
+              {MONTHS.map(m => (
+                 <option key={m} value={m} className="text-slate-200">{m}</option>
+              ))}
+            </optgroup>
           </select>
         </div>
       </div>
@@ -182,31 +215,65 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
           </div>
         </div>
         
-        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">
-              {selectedMonth === 'Semua' ? 'Pencapaian RKAP Tahunan' : `Pencapaian RKAP ${selectedMonth}`}
-            </span>
-            <span className="text-emerald-400 font-semibold text-sm">
-              {(selectedMonth === 'Semua' ? rkapPercentage : monthlyRkapPercentage).toFixed(2)}%
-            </span>
+        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-3">
+          {/* RKAP Bruto */}
+          <div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">
+                {selectedMonth === 'Semua' ? 'RKAP Bruto Tahunan' : `RKAP Bruto ${selectedMonth}`}
+              </span>
+              <span className="text-emerald-400 font-semibold text-sm">
+                {rkapPercentageCurrent.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(rkapPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+              <span>Target RKAP Bruto:</span>
+              <span className="font-medium text-slate-300">
+                {formatRupiah(currentRkapTarget)}
+              </span>
+            </div>
           </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div 
-              className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${Math.min(selectedMonth === 'Semua' ? rkapPercentage : monthlyRkapPercentage, 100)}%` }}
-            />
+
+          {/* RKAP Netto */}
+          <div className="pt-2.5 border-t border-slate-800/40">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">
+                {selectedMonth === 'Semua' ? 'RKAP Netto Tahunan' : `RKAP Netto ${selectedMonth}`}
+              </span>
+              <span className="text-cyan-400 font-semibold text-sm">
+                {rkapNettoPercentageCurrent.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(rkapNettoPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+              <span>Target RKAP Netto:</span>
+              <span className="font-medium text-slate-300">
+                {formatRupiah(currentRkapNettoTarget)}
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between items-center text-[10px] text-slate-500">
-            <span>Target RKAP:</span>
-            <span className="font-medium text-slate-300">
-              {formatRupiah(selectedMonth === 'Semua' ? RKAP_TARGET : RKAP_TARGET / 12)}
-            </span>
-          </div>
+
           {selectedMonth !== 'Semua' && (
-            <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
-              <span>Kontribusi ke Tahunan:</span>
-              <span className="text-slate-400 font-medium">{rkapPercentage.toFixed(2)}%</span>
+            <div className="text-[10px] text-slate-500 flex flex-col gap-0.5 pt-2 border-t border-slate-800/40">
+              <div className="flex justify-between items-center">
+                <span>Kontribusi Bruto ke Tahunan:</span>
+                <span className="text-slate-400 font-medium">{annualRkapPercentage.toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Kontribusi Netto ke Tahunan:</span>
+                <span className="text-slate-400 font-medium">{annualRkapNettoPercentage.toFixed(2)}%</span>
+              </div>
             </div>
           )}
         </div>
@@ -232,25 +299,25 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
               {selectedMonth === 'Semua' ? 'Pencapaian RKAP Tahunan' : `Pencapaian RKAP ${selectedMonth}`}
             </span>
             <span className="text-indigo-400 font-semibold text-sm">
-              {(selectedMonth === 'Semua' ? productionRkapPercentage : monthlyProductionRkapPercentage).toFixed(2)}%
+              {productionRkapPercentageCurrent.toFixed(2)}%
             </span>
           </div>
           <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
             <div 
               className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${Math.min(selectedMonth === 'Semua' ? productionRkapPercentage : monthlyProductionRkapPercentage, 100)}%` }}
+              style={{ width: `${Math.min(productionRkapPercentageCurrent, 100)}%` }}
             />
           </div>
           <div className="flex justify-between items-center text-[10px] text-slate-500">
             <span>Target RKAP:</span>
             <span className="font-medium text-slate-300">
-              {new Intl.NumberFormat('id-ID').format(Math.round(selectedMonth === 'Semua' ? RKAP_PRODUCTION_TARGET : RKAP_PRODUCTION_TARGET / 12))} kWh
+              {new Intl.NumberFormat('id-ID').format(Math.round(currentProductionTarget))} kWh
             </span>
           </div>
           {selectedMonth !== 'Semua' && (
             <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
               <span>Kontribusi ke Tahunan:</span>
-              <span className="text-slate-400 font-medium">{productionRkapPercentage.toFixed(2)}%</span>
+              <span className="text-slate-400 font-medium">{annualProductionRkapPercentage.toFixed(2)}%</span>
             </div>
           )}
         </div>
@@ -275,25 +342,25 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
               {selectedMonth === 'Semua' ? 'Pencapaian RKAP Tahunan' : `Pencapaian RKAP ${selectedMonth}`}
             </span>
             <span className="text-indigo-400 font-semibold text-sm">
-              {(selectedMonth === 'Semua' ? plnProductionRkapPercentage : monthlyPlnProductionRkapPercentage).toFixed(2)}%
+              {plnProductionRkapPercentageCurrent.toFixed(2)}%
             </span>
           </div>
           <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
             <div 
               className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${Math.min(selectedMonth === 'Semua' ? plnProductionRkapPercentage : monthlyPlnProductionRkapPercentage, 100)}%` }}
+              style={{ width: `${Math.min(plnProductionRkapPercentageCurrent, 100)}%` }}
             />
           </div>
           <div className="flex justify-between items-center text-[10px] text-slate-500">
             <span>Target RKAP:</span>
             <span className="font-medium text-slate-300">
-              {new Intl.NumberFormat('id-ID').format(Math.round(selectedMonth === 'Semua' ? RKAP_PLN_PRODUCTION_TARGET : RKAP_PLN_PRODUCTION_TARGET / 12))} kWh
+              {new Intl.NumberFormat('id-ID').format(Math.round(currentPlnProductionTarget))} kWh
             </span>
           </div>
           {selectedMonth !== 'Semua' && (
             <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
               <span>Kontribusi ke Tahunan:</span>
-              <span className="text-slate-400 font-medium">{plnProductionRkapPercentage.toFixed(2)}%</span>
+              <span className="text-slate-400 font-medium">{annualPlnProductionRkapPercentage.toFixed(2)}%</span>
             </div>
           )}
         </div>
@@ -308,7 +375,6 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
             </span>
             <div className="flex justify-between items-center mt-1 text-[11px] gap-2">
               <span className="text-slate-400">Pendapatan: <span className="text-cyan-400 font-medium">{formatRupiah(totalPs)}</span></span>
-              <span className="text-slate-500 text-[10px]">Porsi: <span className="text-slate-300 font-medium">{totalProduction > 0 ? ((totalPsKwh / totalProduction) * 100).toFixed(1) : '0.0'}%</span></span>
             </div>
           </div>
         </div>
@@ -319,25 +385,25 @@ export function DashboardView({ data, productionData = [], psData = [] }: Dashbo
               {selectedMonth === 'Semua' ? 'Pencapaian RKAP Tahunan' : `Pencapaian RKAP ${selectedMonth}`}
             </span>
             <span className="text-cyan-400 font-semibold text-sm">
-              {(selectedMonth === 'Semua' ? psProductionRkapPercentage : monthlyPsProductionRkapPercentage).toFixed(2)}%
+              {psProductionRkapPercentageCurrent.toFixed(2)}%
             </span>
           </div>
           <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
             <div 
               className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${Math.min(selectedMonth === 'Semua' ? psProductionRkapPercentage : monthlyPsProductionRkapPercentage, 100)}%` }}
+              style={{ width: `${Math.min(psProductionRkapPercentageCurrent, 100)}%` }}
             />
           </div>
           <div className="flex justify-between items-center text-[10px] text-slate-500">
             <span>Target RKAP:</span>
             <span className="font-medium text-slate-300">
-              {new Intl.NumberFormat('id-ID').format(Math.round(selectedMonth === 'Semua' ? RKAP_PS_PRODUCTION_TARGET : RKAP_PS_PRODUCTION_TARGET / 12))} kWh
+              {new Intl.NumberFormat('id-ID').format(Math.round(currentPsProductionTarget))} kWh
             </span>
           </div>
           {selectedMonth !== 'Semua' && (
             <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
               <span>Kontribusi ke Tahunan:</span>
-              <span className="text-slate-400 font-medium">{psProductionRkapPercentage.toFixed(2)}%</span>
+              <span className="text-slate-400 font-medium">{annualPsProductionRkapPercentage.toFixed(2)}%</span>
             </div>
           )}
         </div>
