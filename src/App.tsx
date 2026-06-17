@@ -4,14 +4,15 @@ import { DashboardView } from './views/DashboardView';
 import { DataManagementView } from './views/DataManagementView';
 import { SettingsView } from './views/SettingsView';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { ViewState, RevenueRecord, ProductionRecord, PSTerjualRecord, DEFAULT_CATEGORIES } from './types';
-import { MOCK_DATA, MOCK_PRODUCTION_DATA, MOCK_PS_TERJUAL_DATA } from './data/mockData';
+import { ViewState, RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord, DEFAULT_CATEGORIES } from './types';
+import { MOCK_DATA, MOCK_PRODUCTION_DATA, MOCK_PS_TERJUAL_DATA, MOCK_TRANSMISSION_DATA } from './data/mockData';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [data, setData] = useLocalStorage<RevenueRecord[]>('revtrack-data', MOCK_DATA);
   const [productionData, setProductionData] = useLocalStorage<ProductionRecord[]>('revtrack-production-data-v3', MOCK_PRODUCTION_DATA);
   const [psData, setPsData] = useLocalStorage<PSTerjualRecord[]>('revtrack-ps-data', MOCK_PS_TERJUAL_DATA);
+  const [transmissionData, setTransmissionData] = useLocalStorage<TransmissionRecord[]>('revtrack-transmission-data-v1', MOCK_TRANSMISSION_DATA);
   const [categories, setCategories] = useLocalStorage<string[]>('revtrack-categories', DEFAULT_CATEGORIES);
 
   const handleAddData = (record: RevenueRecord) => {
@@ -33,18 +34,20 @@ export default function App() {
   const handleClearData = () => {
     setData([]);
     setPsData([]);
+    setTransmissionData([]);
   };
 
   return (
     <Layout currentView={currentView} onViewChange={setCurrentView}>
       {currentView === 'dashboard' && (
-        <DashboardView data={data} productionData={productionData} psData={psData} />
+        <DashboardView data={data} productionData={productionData} psData={psData} transmissionData={transmissionData} />
       )}
       {currentView === 'management' && (
         <DataManagementView 
           data={data} 
           productionData={productionData}
           psData={psData}
+          transmissionData={transmissionData}
           categories={categories}
           onAddData={handleAddData}
           onUpdateData={handleUpdateData}
@@ -55,6 +58,9 @@ export default function App() {
           onAddPsData={(record) => setPsData([...psData, record])}
           onUpdatePsData={(updated) => setPsData(psData.map(item => item.id === updated.id ? updated : item))}
           onDeletePsData={(id) => setPsData(psData.filter(item => item.id !== id))}
+          onAddTransmissionData={(record) => setTransmissionData([...transmissionData, record])}
+          onUpdateTransmissionData={(updated) => setTransmissionData(transmissionData.map(item => item.id === updated.id ? updated : item))}
+          onDeleteTransmissionData={(id) => setTransmissionData(transmissionData.filter(item => item.id !== id))}
         />
       )}
       {currentView === 'settings' && (

@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { RevenueRecord, ProductionRecord, PSTerjualRecord, MONTHS } from '../types';
+import { RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord, MONTHS } from '../types';
 import { formatRupiah } from '../lib/utils';
 import { TrendingUp, Wallet, ArrowUpRight, BarChart2, PieChart as PieChartIcon, Zap } from 'lucide-react';
 
@@ -11,11 +11,12 @@ interface DashboardViewProps {
   data: RevenueRecord[];
   productionData?: ProductionRecord[];
   psData?: PSTerjualRecord[];
+  transmissionData?: TransmissionRecord[];
 }
 
 const COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
-export function DashboardView({ data, productionData = [], psData = [] }: DashboardViewProps) {
+export function DashboardView({ data, productionData = [], psData = [], transmissionData = [] }: DashboardViewProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>('Semua');
 
   const filteredData = useMemo(() => {

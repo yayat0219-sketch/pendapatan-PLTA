@@ -29,6 +29,27 @@ export interface PSTerjualRecord {
   dateAdded: string;
 }
 
+export interface TransmissionRecord {
+  id: string;
+  month: string;
+  year: number;
+  curugKirim: number;
+  curugTerima: number;
+  pdlrg1Kirim: number;
+  pdlrg1Terima: number;
+  pdlrg2Kirim: number;
+  pdlrg2Terima: number;
+  tatajabar1Kirim: number;
+  tatajabar1Terima: number;
+  tatajabar2Kirim: number;
+  tatajabar2Terima: number;
+  lineIndustriKirim: number;
+  lineIndustriTerima: number;
+  pupukKujangKirim: number;
+  pupukKujangTerima: number;
+  dateAdded: string;
+}
+
 export type ViewState = 'dashboard' | 'management' | 'settings';
 
 export const MONTHS = [

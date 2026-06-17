@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Filter, Download } from 'lucide-react';
-import { RevenueRecord, ProductionRecord, PSTerjualRecord, MONTHS, DEFAULT_CATEGORIES } from '../types';
+import { RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord, MONTHS, DEFAULT_CATEGORIES } from '../types';
 import { formatRupiah, generateId } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
@@ -10,6 +10,7 @@ interface DataManagementViewProps {
   data: RevenueRecord[];
   productionData: ProductionRecord[];
   psData: PSTerjualRecord[];
+  transmissionData?: TransmissionRecord[];
   onAddData: (row: RevenueRecord) => void;
   onUpdateData: (row: RevenueRecord) => void;
   onDeleteData: (id: string) => void;
@@ -19,6 +20,9 @@ interface DataManagementViewProps {
   onAddPsData: (row: PSTerjualRecord) => void;
   onUpdatePsData: (row: PSTerjualRecord) => void;
   onDeletePsData: (id: string) => void;
+  onAddTransmissionData?: (row: TransmissionRecord) => void;
+  onUpdateTransmissionData?: (row: TransmissionRecord) => void;
+  onDeleteTransmissionData?: (id: string) => void;
   categories: string[];
 }
 
@@ -26,6 +30,7 @@ export function DataManagementView({
   data, 
   productionData, 
   psData,
+  transmissionData = [],
   onAddData, 
   onUpdateData, 
   onDeleteData, 
@@ -35,12 +40,16 @@ export function DataManagementView({
   onAddPsData,
   onUpdatePsData,
   onDeletePsData,
+  onAddTransmissionData,
+  onUpdateTransmissionData,
+  onDeleteTransmissionData,
   categories 
 }: DataManagementViewProps) {
-  const [activeTab, setActiveTab] = useState<'revenue' | 'production' | 'ps_terjual'>('revenue');
+  const [activeTab, setActiveTab] = useState<'revenue' | 'production' | 'ps_terjual' | 'transmission'>('revenue');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingData, setEditingData] = useState<RevenueRecord | ProductionRecord | PSTerjualRecord | null>(null);
+  const [editingData, setEditingData] = useState<RevenueRecord | ProductionRecord | PSTerjualRecord | TransmissionRecord | null>(null);
+  const [expandedTxRow, setExpandedTxRow] = useState<string | null>(null);
 
   // Form State
   const [month, setMonth] = useState(MONTHS[0]);
@@ -61,6 +70,24 @@ export function DataManagementView({
   const [customerName, setCustomerName] = useState('');
   const [kwhValue, setKwhValue] = useState<string>('');
   const [rupiahValue, setRupiahValue] = useState<string>('');
+
+  // Transmission Form State (7 transmission lines, Kirim & Terima)
+  const [curugKirim, setCurugKirim] = useState<string>('');
+  const [curugTerima, setCurugTerima] = useState<string>('');
+  const [pdlrg1Kirim, setPdlrg1Kirim] = useState<string>('');
+  const [pdlrg1Terima, setPdlrg1Terima] = useState<string>('');
+  const [pdlrg2Kirim, setPdlrg2Kirim] = useState<string>('');
+  const [pdlrg2Terima, setPdlrg2Terima] = useState<string>('');
+  const [tatajabar1Kirim, setTatajabar1Kirim] = useState<string>('');
+  const [tatajabar1Terima, setTatajabar1Terima] = useState<string>('');
+  const [tatajabar2Kirim, setTatajabar2Kirim] = useState<string>('');
+  const [tatajabar2Terima, setTatajabar2Terima] = useState<string>('');
+  const [lineIndustriKirim, setLineIndustriKirim] = useState<string>('');
+  const [lineIndustriTerima, setLineIndustriTerima] = useState<string>('');
+  const [pupukKujangKirim, setPupukKujangKirim] = useState<string>('');
+  const [pupukKujangTerima, setPupukKujangTerima] = useState<string>('');
+
+  const [transmissionDisplayUnit, setTransmissionDisplayUnit] = useState<'kwh' | 'rupiah'>('kwh');
 
   const filteredData = data.filter(item => 
     item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,6 +117,14 @@ export function DataManagementView({
     return a.customerName.localeCompare(b.customerName);
   });
 
+  const filteredTransmissionData = (transmissionData || []).filter(item => 
+    item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.year.toString().includes(searchTerm)
+  ).sort((a, b) => {
+    if (a.year !== b.year) return b.year - a.year;
+    return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+  });
+
   const openAddModal = () => {
     setEditingData(null);
     setMonth(MONTHS[0]);
@@ -102,16 +137,31 @@ export function DataManagementView({
       setPlta('');
       setMiniHydro('');
       setPln('');
-    } else {
+    } else if (activeTab === 'ps_terjual') {
       setPsCategory('INDUSTRI / PERUSAHAAN');
       setCustomerName('');
       setKwhValue('');
       setRupiahValue('');
+    } else {
+      setCurugKirim('');
+      setCurugTerima('');
+      setPdlrg1Kirim('');
+      setPdlrg1Terima('');
+      setPdlrg2Kirim('');
+      setPdlrg2Terima('');
+      setTatajabar1Kirim('');
+      setTatajabar1Terima('');
+      setTatajabar2Kirim('');
+      setTatajabar2Terima('');
+      setLineIndustriKirim('');
+      setLineIndustriTerima('');
+      setPupukKujangKirim('');
+      setPupukKujangTerima('');
     }
     setIsModalOpen(true);
   };
 
-  const openEditModal = (item: RevenueRecord | ProductionRecord | PSTerjualRecord) => {
+  const openEditModal = (item: RevenueRecord | ProductionRecord | PSTerjualRecord | TransmissionRecord) => {
     setEditingData(item);
     setMonth(item.month);
     setYear(item.year);
@@ -126,12 +176,28 @@ export function DataManagementView({
       setPlta(prodItem.plta.toString());
       setMiniHydro(prodItem.miniHydro.toString());
       setPln(prodItem.pln !== undefined && prodItem.pln !== null ? prodItem.pln.toString() : '');
-    } else {
+    } else if (activeTab === 'ps_terjual') {
       const psItem = item as PSTerjualRecord;
       setPsCategory(psItem.category);
       setCustomerName(psItem.customerName);
       setKwhValue(psItem.kwhValue.toString());
       setRupiahValue(psItem.rupiahValue.toString());
+    } else {
+      const txItem = item as TransmissionRecord;
+      setCurugKirim(txItem.curugKirim.toString());
+      setCurugTerima(txItem.curugTerima.toString());
+      setPdlrg1Kirim(txItem.pdlrg1Kirim.toString());
+      setPdlrg1Terima(txItem.pdlrg1Terima.toString());
+      setPdlrg2Kirim(txItem.pdlrg2Kirim.toString());
+      setPdlrg2Terima(txItem.pdlrg2Terima.toString());
+      setTatajabar1Kirim(txItem.tatajabar1Kirim.toString());
+      setTatajabar1Terima(txItem.tatajabar1Terima.toString());
+      setTatajabar2Kirim(txItem.tatajabar2Kirim.toString());
+      setTatajabar2Terima(txItem.tatajabar2Terima.toString());
+      setLineIndustriKirim(txItem.lineIndustriKirim.toString());
+      setLineIndustriTerima(txItem.lineIndustriTerima.toString());
+      setPupukKujangKirim(txItem.pupukKujangKirim.toString());
+      setPupukKujangTerima(txItem.pupukKujangTerima.toString());
     }
     setIsModalOpen(true);
   };
@@ -189,7 +255,7 @@ export function DataManagementView({
       } else {
         onAddProductionData(record);
       }
-    } else {
+    } else if (activeTab === 'ps_terjual') {
       if (!customerName.trim()) {
         alert("Mohon isi nama perusahaan atau pelanggan.");
         return;
@@ -219,20 +285,55 @@ export function DataManagementView({
       } else {
         onAddPsData(record);
       }
+    } else {
+      const record: TransmissionRecord = {
+        id: editingData ? editingData.id : generateId(),
+        month,
+        year: Number(year),
+        curugKirim: Number(curugKirim) || 0,
+        curugTerima: Number(curugTerima) || 0,
+        pdlrg1Kirim: Number(pdlrg1Kirim) || 0,
+        pdlrg1Terima: Number(pdlrg1Terima) || 0,
+        pdlrg2Kirim: Number(pdlrg2Kirim) || 0,
+        pdlrg2Terima: Number(pdlrg2Terima) || 0,
+        tatajabar1Kirim: Number(tatajabar1Kirim) || 0,
+        tatajabar1Terima: Number(tatajabar1Terima) || 0,
+        tatajabar2Kirim: Number(tatajabar2Kirim) || 0,
+        tatajabar2Terima: Number(tatajabar2Terima) || 0,
+        lineIndustriKirim: Number(lineIndustriKirim) || 0,
+        lineIndustriTerima: Number(lineIndustriTerima) || 0,
+        pupukKujangKirim: Number(pupukKujangKirim) || 0,
+        pupukKujangTerima: Number(pupukKujangTerima) || 0,
+        dateAdded: editingData ? (editingData as TransmissionRecord).dateAdded : new Date().toISOString(),
+      };
+
+      if (editingData) {
+        onUpdateTransmissionData && onUpdateTransmissionData(record);
+      } else {
+        onAddTransmissionData && onAddTransmissionData(record);
+      }
     }
     
     setIsModalOpen(false);
   };
 
   const handleDelete = (id: string) => {
-    const tabName = activeTab === 'revenue' ? 'pendapatan' : activeTab === 'production' ? 'produksi' : 'PS Terjual';
+    const tabName = activeTab === 'revenue' 
+      ? 'pendapatan' 
+      : activeTab === 'production' 
+        ? 'produksi' 
+        : activeTab === 'ps_terjual' 
+          ? 'PS Terjual' 
+          : 'Transmisi PHT';
     if (window.confirm(`Apakah Anda yakin ingin menghapus data ${tabName} ini?`)) {
       if (activeTab === 'revenue') {
         onDeleteData(id);
       } else if (activeTab === 'production') {
         onDeleteProductionData(id);
-      } else {
+      } else if (activeTab === 'ps_terjual') {
         onDeletePsData(id);
+      } else {
+        onDeleteTransmissionData && onDeleteTransmissionData(id);
       }
     }
   };
@@ -278,7 +379,7 @@ export function DataManagementView({
       });
       doc.save('data_produksi.pdf');
       
-    } else {
+    } else if (activeTab === 'ps_terjual') {
       doc.text('Laporan Data PS Terjual & Penugasan', 14, 22);
       
       const head = [['Periode', 'Kategori', 'Nama Pelanggan / Perusahaan', 'Penyaluran (kWh)', 'Pendapatan (Rp)']];
@@ -296,12 +397,48 @@ export function DataManagementView({
         body: body,
       });
       doc.save('data_ps_terjual.pdf');
+    } else {
+      const docLandscape = new jsPDF({ orientation: 'landscape' });
+      docLandscape.setFontSize(14);
+      docLandscape.text('Laporan Detail Transmisi Penghantar (PHT) PLN - 2026', 14, 18);
+      
+      const head = [[
+        'Periode',
+        'Curug Kirim', 'Curug Terima',
+        'PDLRG 1 Kirim', 'PDLRG 1 Terima',
+        'PDLRG 2 Kirim', 'PDLRG 2 Terima',
+        'Tata Jabar 1 Kirim', 'Tata Jabar 1 Terima',
+        'Tata Jabar 2 Kirim', 'Tata Jabar 2 Terima',
+        'Line Ind. Kirim', 'Line Ind. Terima',
+        'Pupuk Kujang Kirim', 'Pupuk Kujang Terima',
+        'Total Kirim', 'Total Terima'
+      ]];
+      const body = filteredTransmissionData.map(row => [
+        `${row.month} ${row.year}`,
+        new Intl.NumberFormat('id-ID').format(row.curugKirim), new Intl.NumberFormat('id-ID').format(row.curugTerima),
+        new Intl.NumberFormat('id-ID').format(row.pdlrg1Kirim), new Intl.NumberFormat('id-ID').format(row.pdlrg1Terima),
+        new Intl.NumberFormat('id-ID').format(row.pdlrg2Kirim), new Intl.NumberFormat('id-ID').format(row.pdlrg2Terima),
+        new Intl.NumberFormat('id-ID').format(row.tatajabar1Kirim), new Intl.NumberFormat('id-ID').format(row.tatajabar1Terima),
+        new Intl.NumberFormat('id-ID').format(row.tatajabar2Kirim), new Intl.NumberFormat('id-ID').format(row.tatajabar2Terima),
+        new Intl.NumberFormat('id-ID').format(row.lineIndustriKirim), new Intl.NumberFormat('id-ID').format(row.lineIndustriTerima),
+        new Intl.NumberFormat('id-ID').format(row.pupukKujangKirim), new Intl.NumberFormat('id-ID').format(row.pupukKujangTerima),
+        new Intl.NumberFormat('id-ID').format(row.curugKirim + row.pdlrg1Kirim + row.pdlrg2Kirim + row.tatajabar1Kirim + row.tatajabar2Kirim + row.lineIndustriKirim + row.pupukKujangKirim),
+        new Intl.NumberFormat('id-ID').format(row.curugTerima + row.pdlrg1Terima + row.pdlrg2Terima + row.tatajabar1Terima + row.tatajabar2Terima + row.lineIndustriTerima + row.pupukKujangTerima)
+      ]);
+
+      autoTable(docLandscape, {
+        startY: 24,
+        head: head,
+        styles: { fontSize: 7.5 },
+        body: body,
+      });
+      docLandscape.save('data_transmisi_pht.pdf');
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1 sm:w-fit gap-1">
+      <div className="flex flex-wrap bg-slate-900 border border-slate-800 rounded-lg p-1 sm:w-fit gap-1">
         <button
           onClick={() => setActiveTab('revenue')}
           className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -331,6 +468,16 @@ export function DataManagementView({
           }`}
         >
           PS Terjual & Penugasan
+        </button>
+        <button
+          onClick={() => setActiveTab('transmission')}
+          className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'transmission' 
+              ? 'bg-indigo-600 text-white shadow-sm' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          Transmisi PLN (Detail PHT)
         </button>
       </div>
 
@@ -497,7 +644,7 @@ export function DataManagementView({
                 )}
               </tbody>
             </table>
-          ) : (
+          ) : activeTab === 'ps_terjual' ? (
             <table className="w-full text-left">
               <thead className="bg-slate-800/50 text-slate-500 text-xs uppercase font-bold tracking-wider">
                 <tr>
@@ -562,6 +709,177 @@ export function DataManagementView({
                 )}
               </tbody>
             </table>
+          ) : (
+            <div>
+              <div className="bg-slate-800/20 p-4 border-b border-slate-800 flex justify-between items-center">
+                <span className="text-sm font-medium text-slate-400">
+                  Model Tampilan Unit Transmisi:
+                </span>
+                <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-0.5 gap-1">
+                  <button
+                    onClick={() => setTransmissionDisplayUnit('kwh')}
+                    className={`px-3 py-1 text-xs font-medium rounded ${
+                      transmissionDisplayUnit === 'kwh'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Dalam kWh
+                  </button>
+                  <button
+                    onClick={() => setTransmissionDisplayUnit('rupiah')}
+                    className={`px-3 py-1 text-xs font-medium rounded ${
+                      transmissionDisplayUnit === 'rupiah'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Setara Rp (Tarif PLN)
+                  </button>
+                </div>
+              </div>
+              <table className="w-full text-left">
+                <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase font-bold tracking-wider">
+                  <tr>
+                    <th scope="col" className="px-6 py-4">Periode</th>
+                    <th scope="col" className="px-6 py-4 text-right">Total Kirim ({transmissionDisplayUnit === 'kwh' ? 'kWh' : 'Rp'})</th>
+                    <th scope="col" className="px-6 py-4 text-right">Total Terima ({transmissionDisplayUnit === 'kwh' ? 'kWh' : 'Rp'})</th>
+                    <th scope="col" className="px-6 py-4 text-right">Net PLN ({transmissionDisplayUnit === 'kwh' ? 'kWh' : 'Rp'})</th>
+                    <th scope="col" className="px-6 py-4 text-center">Rincian</th>
+                    <th scope="col" className="px-6 py-4 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm text-slate-300">
+                  {filteredTransmissionData.length > 0 ? (
+                    filteredTransmissionData.map((row) => {
+                      const totalKirim = row.curugKirim + row.pdlrg1Kirim + row.pdlrg2Kirim + row.tatajabar1Kirim + row.tatajabar2Kirim + row.lineIndustriKirim + row.pupukKujangKirim;
+                      const totalTerima = row.curugTerima + row.pdlrg1Terima + row.pdlrg2Terima + row.tatajabar1Terima + row.tatajabar2Terima + row.lineIndustriTerima + row.pupukKujangTerima;
+                      const netPlnVal = totalKirim - totalTerima;
+
+                      const multiplier = transmissionDisplayUnit === 'rupiah' ? 375 : 1; // standard PLN tariff approximation
+                      const formatVal = (val: number) => {
+                        if (transmissionDisplayUnit === 'rupiah') {
+                          return formatRupiah(val * multiplier);
+                        }
+                        return `${new Intl.NumberFormat('id-ID').format(val)} kWh`;
+                      };
+
+                      const isExpanded = expandedTxRow === row.id;
+
+                      return (
+                        <React.Fragment key={row.id}>
+                          <tr className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-white font-semibold">
+                              {row.month} {row.year}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-indigo-400">
+                              {formatVal(totalKirim)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-sky-400">
+                              {formatVal(totalTerima)}
+                            </td>
+                            <td className={`px-6 py-4 whitespace-nowrap font-mono text-right font-semibold ${netPlnVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {formatVal(netPlnVal)}
+                            </td>
+                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                              <button
+                                onClick={() => setExpandedTxRow(isExpanded ? null : row.id)}
+                                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition-colors border border-slate-700 font-medium"
+                              >
+                                {isExpanded ? 'Tutup Rincian' : 'Lihat 7 Penghantar'}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
+                              <button 
+                                onClick={() => openEditModal(row)}
+                                className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(row.id)}
+                                className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1"
+                              >
+                                Hapus
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="bg-slate-950 border-b border-slate-800/70">
+                              <td colSpan={6} className="px-8 py-5">
+                                <h4 className="text-xs uppercase font-extrabold tracking-widest text-slate-400 mb-4 border-b border-slate-800 pb-2 flex justify-between">
+                                  <span>Detail Meter Transmisi PHT PLN ({transmissionDisplayUnit === 'kwh' ? 'kWh' : 'Rupiah'})</span>
+                                  <span className="text-indigo-400">Periode: {row.month} {row.year}</span>
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                  {[
+                                    { name: 'PHT Curug', kirim: row.curugKirim, terima: row.curugTerima },
+                                    { name: 'PHT Padalarang 1 (PDLRG 1)', kirim: row.pdlrg1Kirim, terima: row.pdlrg1Terima },
+                                    { name: 'PHT Padalarang 2 (PDLRG 2)', kirim: row.pdlrg2Kirim, terima: row.pdlrg2Terima },
+                                    { name: 'PHT Tata Jabar 1', kirim: row.tatajabar1Kirim, terima: row.tatajabar1Terima },
+                                    { name: 'PHT Tata Jabar 2', kirim: row.tatajabar2Kirim, terima: row.tatajabar2Terima },
+                                    { name: 'PHT Line Industri', kirim: row.lineIndustriKirim, terima: row.lineIndustriTerima },
+                                    { name: 'PHT Pupuk Kujang', kirim: row.pupukKujangKirim, terima: row.pupukKujangTerima }
+                                  ].map((pht, index) => (
+                                    <div key={index} className="bg-slate-900 border border-slate-800 p-3 rounded-xl">
+                                      <p className="text-xs font-bold text-slate-300 mb-2 border-b border-slate-800/50 pb-1">{pht.name}</p>
+                                      <div className="flex justify-between text-xs font-mono">
+                                        <span className="text-slate-500">Kirim:</span>
+                                        <span className="text-indigo-300 font-semibold">{formatVal(pht.kirim)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-xs font-mono mt-1">
+                                        <span className="text-slate-500">Terima:</span>
+                                        <span className="text-sky-300 font-semibold">{formatVal(pht.terima)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-xs font-mono mt-2 pt-1 border-t border-slate-800/40 font-bold text-slate-400">
+                                        <span>Selisih:</span>
+                                        <span className={pht.kirim - pht.terima >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                          {formatVal(pht.kirim - pht.terima)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  
+                                  {/* Totals Box */}
+                                  <div className="bg-indigo-950/20 border border-indigo-900/40 p-3 rounded-xl flex flex-col justify-between">
+                                    <p className="text-xs font-bold text-indigo-300 mb-2 border-b border-indigo-900/30 pb-1">TOTAL TRANSMISI PHT</p>
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs font-mono">
+                                        <span className="text-indigo-400">Total Kirim:</span>
+                                        <span className="text-indigo-200 font-bold">{formatVal(totalKirim)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-xs font-mono">
+                                        <span className="text-sky-450 text-indigo-455">Total Terima:</span>
+                                        <span className="text-sky-200 font-bold">{formatVal(totalTerima)}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-between text-xs font-mono mt-2 pt-1 border-t border-indigo-900/30 font-extrabold text-white">
+                                      <span>Net PLN:</span>
+                                      <span className={netPlnVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                        {formatVal(netPlnVal)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
+                        <div className="flex flex-col items-center justify-center">
+                          <Filter className="h-10 w-10 text-slate-700 mb-3" />
+                          <p className="text-slate-400 font-medium text-base">Tidak ada data ditemukan</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -594,7 +912,7 @@ export function DataManagementView({
                     <div className="sm:flex sm:items-start">
                       <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                         <h3 className="text-lg leading-6 font-bold text-white mb-5" id="modal-title">
-                          {editingData ? `Edit Data ${activeTab === 'revenue' ? 'Pendapatan' : activeTab === 'production' ? 'Produksi' : 'PS Terjual & Penugasan'}` : `Tambah Data ${activeTab === 'revenue' ? 'Pendapatan' : activeTab === 'production' ? 'Produksi' : 'PS Terjual & Penugasan'}`}
+                          {editingData ? `Edit Data ${activeTab === 'revenue' ? 'Pendapatan' : activeTab === 'production' ? 'Produksi' : activeTab === 'ps_terjual' ? 'PS Terjual & Penugasan' : 'Transmisi PHT'}` : `Tambah Data ${activeTab === 'revenue' ? 'Pendapatan' : activeTab === 'production' ? 'Produksi' : activeTab === 'ps_terjual' ? 'PS Terjual & Penugasan' : 'Transmisi PHT'}`}
                         </h3>
                         
                         <div className="space-y-4">
@@ -709,7 +1027,7 @@ export function DataManagementView({
                                 />
                               </div>
                             </>
-                          ) : (
+                          ) : activeTab === 'ps_terjual' ? (
                             <>
                               <div>
                                 <label htmlFor="psCategory" className="block text-sm font-medium text-slate-400 mb-1">Kategori Kelompok</label>
@@ -768,6 +1086,94 @@ export function DataManagementView({
                                 />
                               </div>
                             </>
+                          ) : (
+                            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                              <p className="text-xs font-semibold text-indigo-400 border-b border-indigo-950 pb-1 mb-2">Penghantar Transmisi Detail PHT (kWh)</p>
+                              
+                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                <h4 className="col-span-2 text-xs font-bold text-slate-300">1. PHT Curug</h4>
+                                <div>
+                                  <label className="text-xs text-slate-500">Kirim</label>
+                                  <input type="number" step="any" value={curugKirim} onChange={(e) => setCurugKirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500">Terima</label>
+                                  <input type="number" step="any" value={curugTerima} onChange={(e) => setCurugTerima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                <h4 className="col-span-2 text-xs font-bold text-slate-300">2. PHT Padalarang 1 (PDLRG 1)</h4>
+                                <div>
+                                  <label className="text-xs text-slate-500">Kirim</label>
+                                  <input type="number" step="any" value={pdlrg1Kirim} onChange={(e) => setPdlrg1Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500">Terima</label>
+                                  <input type="number" step="any" value={pdlrg1Terima} onChange={(e) => setPdlrg1Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                <h4 className="col-span-2 text-xs font-bold text-slate-300">3. PHT Padalarang 2 (PDLRG 2)</h4>
+                                <div>
+                                  <label className="text-xs text-slate-500">Kirim</label>
+                                  <input type="number" step="any" value={pdlrg2Kirim} onChange={(e) => setPdlrg2Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500">Terima</label>
+                                  <input type="number" step="any" value={pdlrg2Terima} onChange={(e) => setPdlrg2Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                <h4 className="col-span-2 text-xs font-bold text-slate-300">4. PHT Tata Jabar 1</h4>
+                                <div>
+                                  <label className="text-xs text-slate-500">Kirim</label>
+                                  <input type="number" step="any" value={tatajabar1Kirim} onChange={(e) => setTatajabar1Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500">Terima</label>
+                                  <input type="number" step="any" value={tatajabar1Terima} onChange={(e) => setTatajabar1Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                <h4 className="col-span-2 text-xs font-bold text-slate-300">5. PHT Tata Jabar 2</h4>
+                                <div>
+                                  <label className="text-xs text-slate-500">Kirim</label>
+                                  <input type="number" step="any" value={tatajabar2Kirim} onChange={(e) => setTatajabar2Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500">Terima</label>
+                                  <input type="number" step="any" value={tatajabar2Terima} onChange={(e) => setTatajabar2Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                <h4 className="col-span-2 text-xs font-bold text-slate-300">6. PHT Line Industri</h4>
+                                <div>
+                                  <label className="text-xs text-slate-500">Kirim</label>
+                                  <input type="number" step="any" value={lineIndustriKirim} onChange={(e) => setLineIndustriKirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500">Terima</label>
+                                  <input type="number" step="any" value={lineIndustriTerima} onChange={(e) => setLineIndustriTerima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <h4 className="col-span-2 text-xs font-bold text-slate-300">7. PHT Pupuk Kujang</h4>
+                                <div>
+                                  <label className="text-xs text-slate-500">Kirim</label>
+                                  <input type="number" step="any" value={pupukKujangKirim} onChange={(e) => setPupukKujangKirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500">Terima</label>
+                                  <input type="number" step="any" value={pupukKujangTerima} onChange={(e) => setPupukKujangTerima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                </div>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
