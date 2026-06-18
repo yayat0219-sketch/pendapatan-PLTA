@@ -80,11 +80,23 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const plnProductionRkapPercentageCurrent = useMemo(() => (totalPlnKwh / currentPlnProductionTarget) * 100, [totalPlnKwh, currentPlnProductionTarget]);
   const annualPlnProductionRkapPercentage = useMemo(() => (totalPlnKwh / RKAP_PLN_PRODUCTION_TARGET) * 100, [totalPlnKwh]);
 
+  // RKAP PT PLN Revenue Target (RKAP Target: Rp 161.976.749.128)
+  const RKAP_PLN_REVENUE_TARGET = 161976749128;
+  const currentPlnRevenueTarget = useMemo(() => RKAP_PLN_REVENUE_TARGET * scaleFactor, [scaleFactor]);
+  const plnRevenueRkapPercentageCurrent = useMemo(() => (totalPln / currentPlnRevenueTarget) * 100, [totalPln, currentPlnRevenueTarget]);
+  const annualPlnRevenueRkapPercentage = useMemo(() => (totalPln / RKAP_PLN_REVENUE_TARGET) * 100, [totalPln]);
+
   // RKAP PS & Terjual Production Target comparison (RKAP Target: 552.606.149 kWh)
   const RKAP_PS_PRODUCTION_TARGET = 552606149;
   const currentPsProductionTarget = useMemo(() => RKAP_PS_PRODUCTION_TARGET * scaleFactor, [scaleFactor]);
   const psProductionRkapPercentageCurrent = useMemo(() => (totalPsKwh / currentPsProductionTarget) * 100, [totalPsKwh, currentPsProductionTarget]);
   const annualPsProductionRkapPercentage = useMemo(() => (totalPsKwh / RKAP_PS_PRODUCTION_TARGET) * 100, [totalPsKwh]);
+
+  // RKAP PS & Terjual Revenue Target (RKAP Target: Rp 450.197.751.466)
+  const RKAP_PS_REVENUE_TARGET = 450197751466;
+  const currentPsRevenueTarget = useMemo(() => RKAP_PS_REVENUE_TARGET * scaleFactor, [scaleFactor]);
+  const psRevenueRkapPercentageCurrent = useMemo(() => (totalPs / currentPsRevenueTarget) * 100, [totalPs, currentPsRevenueTarget]);
+  const annualPsRevenueRkapPercentage = useMemo(() => (totalPs / RKAP_PS_REVENUE_TARGET) * 100, [totalPs]);
 
   // Aggregate data for Line and Bar charts (Monthly totals)
   const monthlyData = useMemo(() => {
@@ -331,39 +343,73 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
             <span className="text-2xl font-bold text-white tracking-tight">
               {new Intl.NumberFormat('id-ID').format(totalPlnKwh)} <span className="text-sm font-normal text-slate-400">kWh</span>
             </span>
-            <div className="flex justify-between items-center mt-1 text-[11px]">
-              <span className="text-slate-400">Pendapatan: <span className="text-indigo-400 font-medium">{formatRupiah(totalPln)}</span></span>
+            <div className="mt-2 text-[11px] border-t border-slate-800/40 pt-1.5 flex justify-between items-center">
+              <span className="text-slate-400">Total Pendapatan:</span>
+              <span className="text-emerald-400 font-semibold">{formatRupiah(totalPln)}</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">
-              {selectedMonth === 'Semua' ? 'Pencapaian RKAP Tahunan' : `Pencapaian RKAP ${selectedMonth}`}
-            </span>
-            <span className="text-indigo-400 font-semibold text-sm">
-              {plnProductionRkapPercentageCurrent.toFixed(2)}%
-            </span>
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div 
-              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${Math.min(plnProductionRkapPercentageCurrent, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between items-center text-[10px] text-slate-500">
-            <span>Target RKAP:</span>
-            <span className="font-medium text-slate-300">
-              {new Intl.NumberFormat('id-ID').format(Math.round(currentPlnProductionTarget))} kWh
-            </span>
-          </div>
-          {selectedMonth !== 'Semua' && (
-            <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
-              <span>Kontribusi ke Tahunan:</span>
-              <span className="text-slate-400 font-medium">{annualPlnProductionRkapPercentage.toFixed(2)}%</span>
+        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-4">
+          {/* RKAP Produksi (kWh) */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 font-medium">
+                {selectedMonth === 'Semua' ? 'Pencapaian RKAP Produksi' : `Pencapaian RKAP Prod. ${selectedMonth}`}
+              </span>
+              <span className="text-indigo-400 font-bold text-sm">
+                {plnProductionRkapPercentageCurrent.toFixed(2)}%
+              </span>
             </div>
-          )}
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(plnProductionRkapPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500">
+              <span>Target RKAP:</span>
+              <span className="font-medium text-slate-300">
+                {new Intl.NumberFormat('id-ID').format(Math.round(currentPlnProductionTarget))} kWh
+              </span>
+            </div>
+            {selectedMonth !== 'Semua' && (
+              <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
+                <span>Kontribusi Tahunan:</span>
+                <span className="text-slate-400 font-medium">{annualPlnProductionRkapPercentage.toFixed(2)}%</span>
+              </div>
+            )}
+          </div>
+
+          {/* RKAP Pendapatan (IDR) */}
+          <div className="space-y-1.5 border-t border-slate-800/40 pt-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 font-medium">
+                {selectedMonth === 'Semua' ? 'Pencapaian RKAP Pendapatan' : `Pencapaian RKAP Pend. ${selectedMonth}`}
+              </span>
+              <span className="text-emerald-400 font-bold text-sm">
+                {plnRevenueRkapPercentageCurrent.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(plnRevenueRkapPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500">
+              <span>Target RKAP:</span>
+              <span className="font-medium text-slate-300">
+                {formatRupiah(Math.round(currentPlnRevenueTarget))}
+              </span>
+            </div>
+            {selectedMonth !== 'Semua' && (
+              <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
+                <span>Kontribusi Tahunan:</span>
+                <span className="text-slate-400 font-medium">{annualPlnRevenueRkapPercentage.toFixed(2)}%</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -374,39 +420,73 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
             <span className="text-2xl font-bold text-white tracking-tight">
               {new Intl.NumberFormat('id-ID').format(totalPsKwh)} <span className="text-sm font-normal text-slate-400">kWh</span>
             </span>
-            <div className="flex justify-between items-center mt-1 text-[11px] gap-2">
-              <span className="text-slate-400">Pendapatan: <span className="text-cyan-400 font-medium">{formatRupiah(totalPs)}</span></span>
+            <div className="mt-2 text-[11px] border-t border-slate-800/40 pt-1.5 flex justify-between items-center">
+              <span className="text-slate-400">Total Pendapatan:</span>
+              <span className="text-emerald-400 font-semibold">{formatRupiah(totalPs)}</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">
-              {selectedMonth === 'Semua' ? 'Pencapaian RKAP Tahunan' : `Pencapaian RKAP ${selectedMonth}`}
-            </span>
-            <span className="text-cyan-400 font-semibold text-sm">
-              {psProductionRkapPercentageCurrent.toFixed(2)}%
-            </span>
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div 
-              className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${Math.min(psProductionRkapPercentageCurrent, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between items-center text-[10px] text-slate-500">
-            <span>Target RKAP:</span>
-            <span className="font-medium text-slate-300">
-              {new Intl.NumberFormat('id-ID').format(Math.round(currentPsProductionTarget))} kWh
-            </span>
-          </div>
-          {selectedMonth !== 'Semua' && (
-            <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
-              <span>Kontribusi ke Tahunan:</span>
-              <span className="text-slate-400 font-medium">{annualPsProductionRkapPercentage.toFixed(2)}%</span>
+        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-4">
+          {/* RKAP Produksi (kWh) */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 font-medium">
+                {selectedMonth === 'Semua' ? 'Pencapaian RKAP Produksi' : `Pencapaian RKAP Prod. ${selectedMonth}`}
+              </span>
+              <span className="text-cyan-400 font-bold text-sm">
+                {psProductionRkapPercentageCurrent.toFixed(2)}%
+              </span>
             </div>
-          )}
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(psProductionRkapPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500">
+              <span>Target RKAP:</span>
+              <span className="font-medium text-slate-300">
+                {new Intl.NumberFormat('id-ID').format(Math.round(currentPsProductionTarget))} kWh
+              </span>
+            </div>
+            {selectedMonth !== 'Semua' && (
+              <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
+                <span>Kontribusi Tahunan:</span>
+                <span className="text-slate-400 font-medium">{annualPsProductionRkapPercentage.toFixed(2)}%</span>
+              </div>
+            )}
+          </div>
+
+          {/* RKAP Pendapatan (IDR) */}
+          <div className="space-y-1.5 border-t border-slate-800/40 pt-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 font-medium">
+                {selectedMonth === 'Semua' ? 'Pencapaian RKAP Pendapatan' : `Pencapaian RKAP Pend. ${selectedMonth}`}
+              </span>
+              <span className="text-emerald-400 font-bold text-sm">
+                {psRevenueRkapPercentageCurrent.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(psRevenueRkapPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500">
+              <span>Target RKAP:</span>
+              <span className="font-medium text-slate-300">
+                {formatRupiah(Math.round(currentPsRevenueTarget))}
+              </span>
+            </div>
+            {selectedMonth !== 'Semua' && (
+              <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
+                <span>Kontribusi Tahunan:</span>
+                <span className="text-slate-400 font-medium">{annualPsRevenueRkapPercentage.toFixed(2)}%</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
