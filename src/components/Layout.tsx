@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Database, Settings, Menu, X, Droplets } from 'lucide-react';
+import { LayoutDashboard, Database, Settings, Menu, X, Droplets, Sun, Moon } from 'lucide-react';
 import { ViewState } from '../types';
 import { JasaTirtaLogo } from './JasaTirtaLogo';
 import { cn } from '../lib/utils';
@@ -13,6 +13,25 @@ interface LayoutProps {
 
 export function Layout({ currentView, onViewChange, children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState<'dark' | 'light'>(() => {
+    const stored = localStorage.getItem('revtrack-theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    return 'dark'; // default to dark
+  });
+
+  React.useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    } else {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    }
+    localStorage.setItem('revtrack-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
   const navigation = [
     { name: 'Dashboard', value: 'dashboard' as ViewState, icon: LayoutDashboard },
@@ -46,7 +65,14 @@ export function Layout({ currentView, onViewChange, children }: LayoutProps) {
             </button>
           ))}
         </nav>
-        <div className="mt-auto mb-4">
+        <div className="mt-auto mb-4 flex flex-col items-center gap-5">
+          <button
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Beralih ke Mode Gelap' : 'Beralih ke Mode Terang'}
+            className="flex items-center justify-center w-12 h-12 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all cursor-pointer"
+          >
+            {theme === 'light' ? <Moon size={20} className="stroke-2" /> : <Sun size={20} className="stroke-2 text-amber-500" />}
+          </button>
           <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs text-white font-medium">AD</div>
         </div>
       </aside>
@@ -109,12 +135,19 @@ export function Layout({ currentView, onViewChange, children }: LayoutProps) {
           <div className="max-w-7xl mx-auto h-full flex flex-col">
             {/* Header */}
             <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 shrink-0">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 w-full sm:w-auto">
                 <button 
                   onClick={toggleMobileMenu}
                   className="md:hidden text-slate-400 hover:text-white focus:outline-none shrink-0"
                 >
                   <Menu size={24} />
+                </button>
+                <button
+                  onClick={toggleTheme}
+                  title={theme === 'light' ? 'Beralih ke Mode Gelap' : 'Beralih ke Mode Terang'}
+                  className="md:hidden text-slate-400 hover:text-white focus:outline-none shrink-0"
+                >
+                  {theme === 'light' ? <Moon size={22} className="stroke-2" /> : <Sun size={22} className="stroke-2 text-amber-500" />}
                 </button>
                 <div>
                   <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-white capitalize leading-tight">

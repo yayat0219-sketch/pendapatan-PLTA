@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
@@ -18,6 +18,15 @@ const COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'
 
 export function DashboardView({ data, productionData = [], psData = [], transmissionData = [] }: DashboardViewProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>('Semua');
+  const [isLight, setIsLight] = useState(() => document.documentElement.classList.contains('light'));
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsLight(document.documentElement.classList.contains('light'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   const filteredData = useMemo(() => {
     if (selectedMonth === 'Semua') return data;
@@ -167,8 +176,8 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-lg p-3 text-sm text-slate-300">
-          <p className="font-semibold text-white mb-1.5">{label}</p>
+        <div className={`${isLight ? 'bg-white border-slate-200 text-slate-700' : 'bg-slate-900 border-slate-800 text-slate-300'} border shadow-xl rounded-lg p-3 text-sm`}>
+          <p className={`${isLight ? 'text-slate-950 font-bold' : 'text-white font-semibold'} mb-1.5`}>{label}</p>
           {payload.map((entry: any, index: number) => {
             const isKwh = entry.unit === 'kWh' || entry.name.toLowerCase().includes('produksi') || entry.name.toLowerCase().includes('kwh');
             const valueFormatted = isKwh 
@@ -178,7 +187,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
               <div key={`item-${index}`} className="flex items-center gap-2 mb-1 last:mb-0">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color || entry.stroke }} />
                 <span className="text-slate-400 capitalize">{entry.name}:</span>
-                <span className="font-semibold text-white">{valueFormatted}</span>
+                <span className={`font-semibold ${isLight ? 'text-slate-800' : 'text-white'}`}>{valueFormatted}</span>
               </div>
             );
           })}
@@ -502,18 +511,18 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         <div className="flex-1 w-full relative min-h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={monthlyData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isLight ? "#cbd5e1" : "#334155"} />
               <XAxis 
                 dataKey="month" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 dy={10} 
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 tickFormatter={(value) => `Rp ${(value / 1000000000).toFixed(0)}M`}
                 dx={-10}
               />
@@ -524,7 +533,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 name="Total Pendapatan" 
                 stroke="#6366f1" 
                 strokeWidth={3}
-                dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }}
               />
             </LineChart>
@@ -547,18 +556,18 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         <div className="flex-1 w-full relative min-h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={plnProductionMonthlyData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isLight ? "#cbd5e1" : "#334155"} />
               <XAxis 
                 dataKey="month" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 dy={10} 
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 tickFormatter={(value) => `${new Intl.NumberFormat('id-ID').format(Math.round(value / 1000000))} jt`}
                 dx={-10}
               />
@@ -570,7 +579,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 unit="kWh"
                 stroke="#10b981" 
                 strokeWidth={3}
-                dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
               />
             </LineChart>
@@ -599,18 +608,18 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         <div className="flex-1 w-full relative min-h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={psProductionMonthlyData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isLight ? "#cbd5e1" : "#334155"} />
               <XAxis 
                 dataKey="month" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 dy={10} 
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 tickFormatter={(value) => `${new Intl.NumberFormat('id-ID').format(Math.round(value / 1000000))} jt`}
                 dx={-10}
               />
@@ -622,7 +631,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 unit="kWh"
                 stroke="#22d3ee" 
                 strokeWidth={3}
-                dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#22d3ee' }}
               />
               <Line 
@@ -632,7 +641,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 unit="kWh"
                 stroke="#fbbf24" 
                 strokeWidth={2}
-                dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#fbbf24' }}
               />
               <Line 
@@ -643,7 +652,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 stroke="#a78bfa" 
                 strokeWidth={2.5}
                 strokeDasharray="4 4"
-                dot={{ r: 3, strokeWidth: 1, fill: '#1e293b' }}
+                dot={{ r: 3, strokeWidth: 1, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 5, strokeWidth: 0, fill: '#a78bfa' }}
               />
             </LineChart>
@@ -691,8 +700,14 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
               </Pie>
               <Tooltip 
                 formatter={(value: number) => formatRupiah(value)}
-                contentStyle={{ borderRadius: '8px', border: '1px solid #1e293b', backgroundColor: '#0f172a', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                itemStyle={{ color: '#f8fafc' }}
+                contentStyle={{ 
+                  borderRadius: '8px', 
+                  border: isLight ? '1px solid #cbd5e1' : '1px solid #1e293b', 
+                  backgroundColor: isLight ? '#ffffff' : '#0f172a', 
+                  color: isLight ? '#1e293b' : '#f8fafc', 
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
+                }}
+                itemStyle={{ color: isLight ? '#1e293b' : '#f8fafc' }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -705,23 +720,23 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         <div className="flex-1 w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isLight ? "#cbd5e1" : "#334155"} />
               <XAxis 
                 dataKey="month" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 dy={10} 
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                tick={{ fontSize: 12, fill: isLight ? '#475569' : '#94a3b8' }} 
                 tickFormatter={(value) => `Rp ${(value / 1000000000).toFixed(0)}M`}
                 dx={-10}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px', color: '#94a3b8' }} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px', color: isLight ? '#475569' : '#94a3b8' }} />
               {categories.map((category, index) => (
                 <Bar 
                   key={category} 
