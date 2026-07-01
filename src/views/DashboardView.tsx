@@ -18,6 +18,7 @@ const COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'
 
 export function DashboardView({ data, productionData = [], psData = [], transmissionData = [] }: DashboardViewProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>('Semua');
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [isLight, setIsLight] = useState(() => document.documentElement.classList.contains('light'));
 
   useEffect(() => {
@@ -28,23 +29,53 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
     return () => observer.disconnect();
   }, []);
 
+  // Filter available years dynamically based on all data sets
+  const availableYears = useMemo(() => {
+    const years = new Set<number>([2026]); // Always include 2026 by default
+    data.forEach(d => d.year && years.add(d.year));
+    productionData.forEach(d => d.year && years.add(d.year));
+    psData.forEach(d => d.year && years.add(d.year));
+    transmissionData.forEach(d => d.year && years.add(d.year));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [data, productionData, psData, transmissionData]);
+
+  // Maintain selectedYear validity
+  useEffect(() => {
+    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[0]);
+    }
+  }, [availableYears, selectedYear]);
+
+  // Filter datasets strictly by selected year
+  const yearData = useMemo(() => {
+    return data.filter(d => d.year === selectedYear);
+  }, [data, selectedYear]);
+
+  const yearProductionData = useMemo(() => {
+    return productionData.filter(d => d.year === selectedYear);
+  }, [productionData, selectedYear]);
+
+  const yearPsData = useMemo(() => {
+    return psData.filter(d => d.year === selectedYear);
+  }, [psData, selectedYear]);
+
   const filteredData = useMemo(() => {
-    if (selectedMonth === 'Semua') return data;
-    if (selectedMonth === 'Q1') return data.filter(d => ['Januari', 'Februari', 'Maret'].includes(d.month));
-    if (selectedMonth === 'Q2') return data.filter(d => ['April', 'Mei', 'Juni'].includes(d.month));
-    if (selectedMonth === 'Q3') return data.filter(d => ['Juli', 'Agustus', 'September'].includes(d.month));
-    if (selectedMonth === 'Q4') return data.filter(d => ['Oktober', 'November', 'Desember'].includes(d.month));
-    return data.filter(d => d.month === selectedMonth);
-  }, [data, selectedMonth]);
+    if (selectedMonth === 'Semua') return yearData;
+    if (selectedMonth === 'Q1') return yearData.filter(d => ['Januari', 'Februari', 'Maret'].includes(d.month));
+    if (selectedMonth === 'Q2') return yearData.filter(d => ['April', 'Mei', 'Juni'].includes(d.month));
+    if (selectedMonth === 'Q3') return yearData.filter(d => ['Juli', 'Agustus', 'September'].includes(d.month));
+    if (selectedMonth === 'Q4') return yearData.filter(d => ['Oktober', 'November', 'Desember'].includes(d.month));
+    return yearData.filter(d => d.month === selectedMonth);
+  }, [yearData, selectedMonth]);
 
   const filteredProductionData = useMemo(() => {
-    if (selectedMonth === 'Semua') return productionData;
-    if (selectedMonth === 'Q1') return productionData.filter(d => ['Januari', 'Februari', 'Maret'].includes(d.month));
-    if (selectedMonth === 'Q2') return productionData.filter(d => ['April', 'Mei', 'Juni'].includes(d.month));
-    if (selectedMonth === 'Q3') return productionData.filter(d => ['Juli', 'Agustus', 'September'].includes(d.month));
-    if (selectedMonth === 'Q4') return productionData.filter(d => ['Oktober', 'November', 'Desember'].includes(d.month));
-    return productionData.filter(d => d.month === selectedMonth);
-  }, [productionData, selectedMonth]);
+    if (selectedMonth === 'Semua') return yearProductionData;
+    if (selectedMonth === 'Q1') return yearProductionData.filter(d => ['Januari', 'Februari', 'Maret'].includes(d.month));
+    if (selectedMonth === 'Q2') return yearProductionData.filter(d => ['April', 'Mei', 'Juni'].includes(d.month));
+    if (selectedMonth === 'Q3') return yearProductionData.filter(d => ['Juli', 'Agustus', 'September'].includes(d.month));
+    if (selectedMonth === 'Q4') return yearProductionData.filter(d => ['Oktober', 'November', 'Desember'].includes(d.month));
+    return yearProductionData.filter(d => d.month === selectedMonth);
+  }, [yearProductionData, selectedMonth]);
 
   // Aggregate totals
   const totalRevenue = useMemo(() => filteredData.reduce((sum, item) => sum + item.amount, 0), [filteredData]);
@@ -75,7 +106,14 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const totalMiniHydro = useMemo(() => filteredProductionData.reduce((sum, item) => sum + item.miniHydro, 0), [filteredProductionData]);
   const totalProduction = totalPlta + totalMiniHydro;
   const totalPlnKwh = useMemo(() => filteredProductionData.reduce((sum, item) => sum + (item.pln || 0), 0), [filteredProductionData]);
-  const totalPsKwh = totalProduction - totalPlnKwh;
+  const totalPsKwh = useMemo(() => {
+    return filteredProductionData.reduce((sum, item) => {
+      if (item.ps !== undefined && item.ps !== null) {
+        return sum + item.ps;
+      }
+      return sum + (item.plta + item.miniHydro - (item.pln || 0));
+    }, 0);
+  }, [filteredProductionData]);
 
   // RKAP Production Target comparison (RKAP Production Target: 984.544.147 kWh)
   const RKAP_PRODUCTION_TARGET = 984544147;
@@ -110,7 +148,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   // Aggregate data for Line and Bar charts (Monthly totals)
   const monthlyData = useMemo(() => {
     return MONTHS.map(month => {
-      const monthData = data.filter(d => d.month === month);
+      const monthData = yearData.filter(d => d.month === month);
       const total = monthData.reduce((sum, item) => sum + item.amount, 0);
       
       // Also separate by category for stacked bars if we want to
@@ -125,23 +163,24 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         ...byCategory,
       };
     });
-  }, [data]);
+  }, [yearData]);
 
   // Aggregate data for PLN production trend chart
   const plnProductionMonthlyData = useMemo(() => {
     return MONTHS.map(month => {
-      const prodRecord = productionData.find(p => p.month === month);
+      const monthRecords = yearProductionData.filter(p => p.month === month);
+      const pln = monthRecords.reduce((sum, item) => sum + (item.pln || 0), 0);
       return {
         month,
-        pln: prodRecord ? prodRecord.pln : 0,
+        pln,
       };
     });
-  }, [productionData]);
+  }, [yearProductionData]);
 
   // Aggregate data for non-PLN (Swasta + Penduduk) production trend chart
   const psProductionMonthlyData = useMemo(() => {
     return MONTHS.map(month => {
-      const monthRecords = psData.filter(p => p.month === month);
+      const monthRecords = yearPsData.filter(p => p.month === month);
       const swasta = monthRecords
         .filter(r => r.category === 'INDUSTRI / PERUSAHAAN')
         .reduce((sum, item) => sum + item.kwhValue, 0);
@@ -157,7 +196,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         total,
       };
     });
-  }, [psData]);
+  }, [yearPsData]);
 
   // Aggregate data for Pie chart (Total by category)
   const categoryData = useMemo(() => {
@@ -201,28 +240,47 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-lg font-bold text-white">Dashboard Statistik</h2>
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1.5 shadow-sm">
-          <label htmlFor="month-filter" className="text-sm font-medium text-slate-400 pl-2">Filter Periode:</label>
-          <select 
-            id="month-filter" 
-            value={selectedMonth} 
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-slate-800 border-none text-slate-200 text-sm rounded-md focus:ring-0 focus:outline-none block py-1.5 pr-8 pl-3 cursor-pointer hover:bg-slate-700 transition-colors appearance-none relative"
-            style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%22%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
-          >
-            <option value="Semua">Semua Waktu</option>
-            <optgroup label="Pilihan Kuartal" className="text-indigo-400 bg-slate-900 font-semibold">
-              <option value="Q1" className="text-slate-200">Quartal 1 (Jan - Mar)</option>
-              <option value="Q2" className="text-slate-200">Quartal 2 (Apr - Jun)</option>
-              <option value="Q3" className="text-slate-200">Quartal 3 (Jul - Sep)</option>
-              <option value="Q4" className="text-slate-200">Quartal 4 (Okt - Des)</option>
-            </optgroup>
-            <optgroup label="Pilihan Bulan" className="text-indigo-400 bg-slate-900 font-semibold">
-              {MONTHS.map(m => (
-                 <option key={m} value={m} className="text-slate-200">{m}</option>
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {/* Year Filter */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1.5 shadow-sm">
+            <label htmlFor="year-filter" className="text-sm font-medium text-slate-400 pl-2">Tahun:</label>
+            <select 
+              id="year-filter" 
+              value={selectedYear} 
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="bg-slate-800 border-none text-slate-200 text-sm rounded-md focus:ring-0 focus:outline-none block py-1.5 pr-8 pl-3 cursor-pointer hover:bg-slate-700 transition-colors appearance-none relative"
+              style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%22%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
+            >
+              {availableYears.map(y => (
+                <option key={y} value={y}>{y}</option>
               ))}
-            </optgroup>
-          </select>
+            </select>
+          </div>
+
+          {/* Period Filter */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1.5 shadow-sm">
+            <label htmlFor="month-filter" className="text-sm font-medium text-slate-400 pl-2">Filter Periode:</label>
+            <select 
+              id="month-filter" 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-slate-800 border-none text-slate-200 text-sm rounded-md focus:ring-0 focus:outline-none block py-1.5 pr-8 pl-3 cursor-pointer hover:bg-slate-700 transition-colors appearance-none relative"
+              style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%22%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
+            >
+              <option value="Semua">Semua Waktu</option>
+              <optgroup label="Pilihan Kuartal" className="text-indigo-400 bg-slate-900 font-semibold">
+                <option value="Q1" className="text-slate-200">Quartal 1 (Jan - Mar)</option>
+                <option value="Q2" className="text-slate-200">Quartal 2 (Apr - Jun)</option>
+                <option value="Q3" className="text-slate-200">Quartal 3 (Jul - Sep)</option>
+                <option value="Q4" className="text-slate-200">Quartal 4 (Okt - Des)</option>
+              </optgroup>
+              <optgroup label="Pilihan Bulan" className="text-indigo-400 bg-slate-900 font-semibold">
+                {MONTHS.map(m => (
+                   <option key={m} value={m} className="text-slate-200">{m}</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -233,7 +291,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
           <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2 block">Total Pendapatan</span>
           <div className="flex flex-col gap-1">
             <span className="text-2xl font-bold text-white tracking-tight">{formatRupiah(totalRevenue)}</span>
-            <span className="text-emerald-400 text-xs font-medium">+ (2026)</span>
+            <span className="text-emerald-400 text-xs font-medium">+ ({selectedYear})</span>
           </div>
         </div>
         

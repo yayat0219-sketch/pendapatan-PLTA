@@ -50,6 +50,11 @@ export function DataManagementView({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingData, setEditingData] = useState<RevenueRecord | ProductionRecord | PSTerjualRecord | TransmissionRecord | null>(null);
   const [expandedTxRow, setExpandedTxRow] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string | null; tabName: string }>({
+    isOpen: false,
+    id: null,
+    tabName: ''
+  });
 
   // Form State
   const [month, setMonth] = useState(MONTHS[0]);
@@ -64,6 +69,7 @@ export function DataManagementView({
   const [plta, setPlta] = useState<string>('');
   const [miniHydro, setMiniHydro] = useState<string>('');
   const [pln, setPln] = useState<string>('');
+  const [ps, setPs] = useState<string>('');
 
   // PS Terjual Form State
   const [psCategory, setPsCategory] = useState<'INDUSTRI / PERUSAHAAN' | 'PERUMAHAN & WARUNG'>('INDUSTRI / PERUSAHAAN');
@@ -137,6 +143,7 @@ export function DataManagementView({
       setPlta('');
       setMiniHydro('');
       setPln('');
+      setPs('');
     } else if (activeTab === 'ps_terjual') {
       setPsCategory('INDUSTRI / PERUSAHAAN');
       setCustomerName('');
@@ -176,6 +183,10 @@ export function DataManagementView({
       setPlta(prodItem.plta.toString());
       setMiniHydro(prodItem.miniHydro.toString());
       setPln(prodItem.pln !== undefined && prodItem.pln !== null ? prodItem.pln.toString() : '');
+      const defaultPs = prodItem.ps !== undefined && prodItem.ps !== null 
+        ? prodItem.ps 
+        : (prodItem.plta + prodItem.miniHydro - (prodItem.pln || 0));
+      setPs(defaultPs.toString());
     } else if (activeTab === 'ps_terjual') {
       const psItem = item as PSTerjualRecord;
       setPsCategory(psItem.category);
@@ -239,6 +250,10 @@ export function DataManagementView({
         alert("Mohon isi produksi PLN dengan angka yang valid.");
         return;
       }
+      if (ps === '' || isNaN(Number(ps))) {
+        alert("Mohon isi produksi PS dengan angka yang valid.");
+        return;
+      }
 
       const record: ProductionRecord = {
         id: editingData ? editingData.id : generateId(),
@@ -247,6 +262,7 @@ export function DataManagementView({
         plta: Number(plta),
         miniHydro: Number(miniHydro),
         pln: Number(pln),
+        ps: Number(ps),
         dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
       };
 
@@ -325,17 +341,22 @@ export function DataManagementView({
         : activeTab === 'ps_terjual' 
           ? 'PS Terjual' 
           : 'Transmisi PHT';
-    if (window.confirm(`Apakah Anda yakin ingin menghapus data ${tabName} ini?`)) {
+    setDeleteConfirm({ isOpen: true, id, tabName });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm.id) {
       if (activeTab === 'revenue') {
-        onDeleteData(id);
+        onDeleteData(deleteConfirm.id);
       } else if (activeTab === 'production') {
-        onDeleteProductionData(id);
+        onDeleteProductionData(deleteConfirm.id);
       } else if (activeTab === 'ps_terjual') {
-        onDeletePsData(id);
+        onDeletePsData(deleteConfirm.id);
       } else {
-        onDeleteTransmissionData && onDeleteTransmissionData(id);
+        onDeleteTransmissionData && onDeleteTransmissionData(deleteConfirm.id);
       }
     }
+    setDeleteConfirm({ isOpen: false, id: null, tabName: '' });
   };
 
   const handleDownloadPDF = () => {
@@ -369,7 +390,11 @@ export function DataManagementView({
         new Intl.NumberFormat('id-ID').format(row.plta),
         new Intl.NumberFormat('id-ID').format(row.miniHydro),
         new Intl.NumberFormat('id-ID').format(row.pln || 0),
-        new Intl.NumberFormat('id-ID').format((row.plta + row.miniHydro) - (row.pln || 0)),
+        new Intl.NumberFormat('id-ID').format(
+          row.ps !== undefined && row.ps !== null 
+            ? row.ps 
+            : (row.plta + row.miniHydro) - (row.pln || 0)
+        ),
       ]);
 
       autoTable(doc, {
@@ -614,7 +639,11 @@ export function DataManagementView({
                         {new Intl.NumberFormat('id-ID').format(row.pln || 0)} kWh
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-amber-400">
-                        {new Intl.NumberFormat('id-ID').format((row.plta + row.miniHydro) - (row.pln || 0))} kWh
+                        {new Intl.NumberFormat('id-ID').format(
+                          row.ps !== undefined && row.ps !== null 
+                            ? row.ps 
+                            : (row.plta + row.miniHydro) - (row.pln || 0)
+                        )} kWh
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
                         <button 
@@ -1026,6 +1055,21 @@ export function DataManagementView({
                                   min="0"
                                 />
                               </div>
+                              <div>
+                                <label htmlFor="ps" className="block text-sm font-medium text-slate-400 mb-1">
+                                  Produksi PS (kWh)
+                                </label>
+                                <input
+                                  type="number"
+                                  id="ps"
+                                  value={ps}
+                                  onChange={(e) => setPs(e.target.value)}
+                                  placeholder="Contoh: 52182770"
+                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
+                                  required
+                                  min="0"
+                                />
+                              </div>
                             </>
                           ) : activeTab === 'ps_terjual' ? (
                             <>
@@ -1195,6 +1239,66 @@ export function DataManagementView({
                     </button>
                   </div>
                 </form>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Konfirmasi Hapus */}
+      <AnimatePresence>
+        {deleteConfirm.isOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-modal-title" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity z-0" 
+                aria-hidden="true" 
+                onClick={() => setDeleteConfirm({ isOpen: false, id: null, tabName: '' })}
+              />
+
+              {/* Center modal trick */}
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative z-10 inline-block align-middle bg-slate-900 border border-slate-700 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:max-w-md w-full"
+              >
+                <div className="bg-slate-900 px-6 pt-6 pb-4 sm:pb-6">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-rose-500/10 sm:mx-0 sm:h-10 sm:w-10">
+                      <Trash2 className="h-6 w-6 text-rose-500" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <h3 className="text-lg leading-6 font-bold text-white mb-2" id="delete-modal-title">
+                        Konfirmasi Hapus Data
+                      </h3>
+                      <p className="text-sm text-slate-300">
+                        Apakah Anda yakin ingin menghapus data <span className="font-semibold text-rose-400 capitalize">{deleteConfirm.tabName}</span> ini? Tindakan ini tidak dapat dibatalkan.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-slate-800/40 px-6 py-4 sm:flex sm:flex-row-reverse border-t border-slate-800 gap-3">
+                  <button
+                    type="button"
+                    onClick={confirmDelete}
+                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-rose-600 text-base font-semibold text-white hover:bg-rose-500 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                  >
+                    Hapus Data
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirm({ isOpen: false, id: null, tabName: '' })}
+                    className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-700 shadow-sm px-4 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none sm:mt-0 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
               </motion.div>
             </div>
           </div>

@@ -15,6 +15,7 @@ export interface ProductionRecord {
   plta: number;
   miniHydro: number;
   pln: number;
+  ps?: number;
   dateAdded: string;
 }
 
