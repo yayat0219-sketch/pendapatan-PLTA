@@ -62,6 +62,10 @@ export function DataManagementView({
   const [month, setMonth] = useState(MONTHS[0]);
   const [year, setYear] = useState(new Date().getFullYear());
   
+  // Success Toast States
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   // Revenue Form State
   const [category, setCategory] = useState(categories[0] || DEFAULT_CATEGORIES[0]);
   const [amount, setAmount] = useState<string>('');
@@ -95,6 +99,39 @@ export function DataManagementView({
   const [pupukKujangKirim, setPupukKujangKirim] = useState<string>('');
   const [pupukKujangTerima, setPupukKujangTerima] = useState<string>('');
 
+  // Multi-row States for adding multiple records simultaneously
+  const [revenueRows, setRevenueRows] = useState<{ category: string; amount: string; notes: string }[]>([
+    { category: categories[0] || DEFAULT_CATEGORIES[0], amount: '', notes: '' }
+  ]);
+
+  const [productionRows, setProductionRows] = useState<{ plta: string; miniHydro: string; pln: string; ps: string }[]>([
+    { plta: '', miniHydro: '', pln: '', ps: '' }
+  ]);
+
+  const [psRows, setPsRows] = useState<{ category: 'INDUSTRI / PERUSAHAAN' | 'PERUMAHAN & WARUNG'; customerName: string; kwhValue: string; rupiahValue: string }[]>([
+    { category: 'INDUSTRI / PERUSAHAAN', customerName: '', kwhValue: '', rupiahValue: '' }
+  ]);
+
+  const [transmissionRows, setTransmissionRows] = useState<{
+    curugKirim: string; curugTerima: string;
+    pdlrg1Kirim: string; pdlrg1Terima: string;
+    pdlrg2Kirim: string; pdlrg2Terima: string;
+    tatajabar1Kirim: string; tatajabar1Terima: string;
+    tatajabar2Kirim: string; tatajabar2Terima: string;
+    lineIndustriKirim: string; lineIndustriTerima: string;
+    pupukKujangKirim: string; pupukKujangTerima: string;
+  }[]>([
+    {
+      curugKirim: '', curugTerima: '',
+      pdlrg1Kirim: '', pdlrg1Terima: '',
+      pdlrg2Kirim: '', pdlrg2Terima: '',
+      tatajabar1Kirim: '', tatajabar1Terima: '',
+      tatajabar2Kirim: '', tatajabar2Terima: '',
+      lineIndustriKirim: '', lineIndustriTerima: '',
+      pupukKujangKirim: '', pupukKujangTerima: '',
+    }
+  ]);
+
   const [transmissionDisplayUnit, setTransmissionDisplayUnit] = useState<'kwh' | 'rupiah'>('kwh');
 
   const filteredData = data.filter(item => 
@@ -120,10 +157,85 @@ export function DataManagementView({
     item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.year.toString().includes(searchTerm)
   ).sort((a, b) => {
+    // 1. Group by category
+    if (a.category !== b.category) return a.category.localeCompare(b.category);
+    
+    // 2. Group by customer name
+    const customerCompare = a.customerName.localeCompare(b.customerName);
+    if (customerCompare !== 0) return customerCompare;
+    
+    // 3. Sort by year (descending)
     if (a.year !== b.year) return b.year - a.year;
-    if (a.month !== b.month) return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
-    return a.customerName.localeCompare(b.customerName);
+    
+    // 4. Sort chronologically by month (ascending)
+    return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
   });
+
+  // Programmatic hierarchical grouping of PS Terjual & Penugasan data
+  const groupedPsData = React.useMemo(() => {
+    const groups: { [key: string]: { year: number; month: string; items: PSTerjualRecord[] } } = {};
+    
+    filteredPsData.forEach(item => {
+      const key = `${item.year}-${item.month}`;
+      if (!groups[key]) {
+        groups[key] = {
+          year: item.year,
+          month: item.month,
+          items: []
+        };
+      }
+      groups[key].items.push(item);
+    });
+    
+    // Sort period keys (Year ascending, Month index ascending so periods are shown chronologically from Jan 2026 onwards)
+    const sortedPeriodKeys = Object.keys(groups).sort((keyA, keyB) => {
+      const gA = groups[keyA];
+      const gB = groups[keyB];
+      if (gA.year !== gB.year) return gA.year - gB.year;
+      return MONTHS.indexOf(gA.month) - MONTHS.indexOf(gB.month);
+    });
+    
+    return sortedPeriodKeys.map(key => {
+      const group = groups[key];
+      
+      // Group items inside this period by Category
+      const categoryGroups: { [cat: string]: PSTerjualRecord[] } = {};
+      group.items.forEach(item => {
+        if (!categoryGroups[item.category]) {
+          categoryGroups[item.category] = [];
+        }
+        categoryGroups[item.category].push(item);
+      });
+      
+      // Sort categories (e.g. INDUSTRI / PERUSAHAAN first, then PERUMAHAN & WARUNG)
+      const sortedCats = Object.keys(categoryGroups).sort((a, b) => a.localeCompare(b));
+      
+      const categoriesList = sortedCats.map(catName => {
+        const items = categoryGroups[catName].sort((a, b) => a.customerName.localeCompare(b.customerName));
+        const subtotalKwh = items.reduce((sum, item) => sum + (item.kwhValue || 0), 0);
+        const subtotalRupiah = items.reduce((sum, item) => sum + (item.rupiahValue || 0), 0);
+        
+        return {
+          categoryName: catName,
+          items,
+          subtotalKwh,
+          subtotalRupiah
+        };
+      });
+      
+      const totalKwh = categoriesList.reduce((sum, cat) => sum + cat.subtotalKwh, 0);
+      const totalRupiah = categoriesList.reduce((sum, cat) => sum + cat.subtotalRupiah, 0);
+      
+      return {
+        key,
+        year: group.year,
+        month: group.month,
+        categories: categoriesList,
+        totalKwh,
+        totalRupiah
+      };
+    });
+  }, [filteredPsData]);
 
   const filteredTransmissionData = (transmissionData || []).filter(item => 
     item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -139,36 +251,21 @@ export function DataManagementView({
     setIsSaving(false);
     setMonth(MONTHS[0]);
     setYear(new Date().getFullYear());
-    if (activeTab === 'revenue') {
-      setCategory(categories[0] || DEFAULT_CATEGORIES[0]);
-      setAmount('');
-      setNotes('');
-    } else if (activeTab === 'production') {
-      setPlta('');
-      setMiniHydro('');
-      setPln('');
-      setPs('');
-    } else if (activeTab === 'ps_terjual') {
-      setPsCategory('INDUSTRI / PERUSAHAAN');
-      setCustomerName('');
-      setKwhValue('');
-      setRupiahValue('');
-    } else {
-      setCurugKirim('');
-      setCurugTerima('');
-      setPdlrg1Kirim('');
-      setPdlrg1Terima('');
-      setPdlrg2Kirim('');
-      setPdlrg2Terima('');
-      setTatajabar1Kirim('');
-      setTatajabar1Terima('');
-      setTatajabar2Kirim('');
-      setTatajabar2Terima('');
-      setLineIndustriKirim('');
-      setLineIndustriTerima('');
-      setPupukKujangKirim('');
-      setPupukKujangTerima('');
-    }
+    
+    // Reset multi-row states to a single clean default row
+    setRevenueRows([{ category: categories[0] || DEFAULT_CATEGORIES[0], amount: '', notes: '' }]);
+    setProductionRows([{ plta: '', miniHydro: '', pln: '', ps: '' }]);
+    setPsRows([{ category: 'INDUSTRI / PERUSAHAAN', customerName: '', kwhValue: '', rupiahValue: '' }]);
+    setTransmissionRows([{
+      curugKirim: '', curugTerima: '',
+      pdlrg1Kirim: '', pdlrg1Terima: '',
+      pdlrg2Kirim: '', pdlrg2Terima: '',
+      tatajabar1Kirim: '', tatajabar1Terima: '',
+      tatajabar2Kirim: '', tatajabar2Terima: '',
+      lineIndustriKirim: '', lineIndustriTerima: '',
+      pupukKujangKirim: '', pupukKujangTerima: '',
+    }]);
+
     setIsModalOpen(true);
   };
 
@@ -181,40 +278,48 @@ export function DataManagementView({
     
     if (activeTab === 'revenue') {
       const revenueItem = item as RevenueRecord;
-      setCategory(revenueItem.category);
-      setAmount(revenueItem.amount.toString());
-      setNotes(revenueItem.notes || '');
+      setRevenueRows([{
+        category: revenueItem.category,
+        amount: revenueItem.amount.toString(),
+        notes: revenueItem.notes || ''
+      }]);
     } else if (activeTab === 'production') {
       const prodItem = item as ProductionRecord;
-      setPlta(prodItem.plta.toString());
-      setMiniHydro(prodItem.miniHydro.toString());
-      setPln(prodItem.pln !== undefined && prodItem.pln !== null ? prodItem.pln.toString() : '');
       const defaultPs = prodItem.ps !== undefined && prodItem.ps !== null 
         ? prodItem.ps 
         : (prodItem.plta + prodItem.miniHydro - (prodItem.pln || 0));
-      setPs(defaultPs.toString());
+      setProductionRows([{
+        plta: prodItem.plta.toString(),
+        miniHydro: prodItem.miniHydro.toString(),
+        pln: (prodItem.pln !== undefined && prodItem.pln !== null) ? prodItem.pln.toString() : '',
+        ps: defaultPs.toString()
+      }]);
     } else if (activeTab === 'ps_terjual') {
       const psItem = item as PSTerjualRecord;
-      setPsCategory(psItem.category);
-      setCustomerName(psItem.customerName);
-      setKwhValue(psItem.kwhValue.toString());
-      setRupiahValue(psItem.rupiahValue.toString());
+      setPsRows([{
+        category: psItem.category,
+        customerName: psItem.customerName,
+        kwhValue: psItem.kwhValue.toString(),
+        rupiahValue: psItem.rupiahValue.toString()
+      }]);
     } else {
       const txItem = item as TransmissionRecord;
-      setCurugKirim(txItem.curugKirim.toString());
-      setCurugTerima(txItem.curugTerima.toString());
-      setPdlrg1Kirim(txItem.pdlrg1Kirim.toString());
-      setPdlrg1Terima(txItem.pdlrg1Terima.toString());
-      setPdlrg2Kirim(txItem.pdlrg2Kirim.toString());
-      setPdlrg2Terima(txItem.pdlrg2Terima.toString());
-      setTatajabar1Kirim(txItem.tatajabar1Kirim.toString());
-      setTatajabar1Terima(txItem.tatajabar1Terima.toString());
-      setTatajabar2Kirim(txItem.tatajabar2Kirim.toString());
-      setTatajabar2Terima(txItem.tatajabar2Terima.toString());
-      setLineIndustriKirim(txItem.lineIndustriKirim.toString());
-      setLineIndustriTerima(txItem.lineIndustriTerima.toString());
-      setPupukKujangKirim(txItem.pupukKujangKirim.toString());
-      setPupukKujangTerima(txItem.pupukKujangTerima.toString());
+      setTransmissionRows([{
+        curugKirim: txItem.curugKirim.toString(),
+        curugTerima: txItem.curugTerima.toString(),
+        pdlrg1Kirim: txItem.pdlrg1Kirim.toString(),
+        pdlrg1Terima: txItem.pdlrg1Terima.toString(),
+        pdlrg2Kirim: txItem.pdlrg2Kirim.toString(),
+        pdlrg2Terima: txItem.pdlrg2Terima.toString(),
+        tatajabar1Kirim: txItem.tatajabar1Kirim.toString(),
+        tatajabar1Terima: txItem.tatajabar1Terima.toString(),
+        tatajabar2Kirim: txItem.tatajabar2Kirim.toString(),
+        tatajabar2Terima: txItem.tatajabar2Terima.toString(),
+        lineIndustriKirim: txItem.lineIndustriKirim.toString(),
+        lineIndustriTerima: txItem.lineIndustriTerima.toString(),
+        pupukKujangKirim: txItem.pupukKujangKirim.toString(),
+        pupukKujangTerima: txItem.pupukKujangTerima.toString()
+      }]);
     }
     setIsModalOpen(true);
   };
@@ -226,127 +331,159 @@ export function DataManagementView({
     
     try {
       if (activeTab === 'revenue') {
-        if (amount === '' || isNaN(Number(amount))) {
-          alert("Mohon isi jumlah pendapatan dengan angka yang valid.");
-          setIsSaving(false);
-          return;
+        // Validate all rows
+        for (const row of revenueRows) {
+          if (row.amount === '' || isNaN(Number(row.amount))) {
+            alert("Mohon isi jumlah pendapatan dengan angka yang valid.");
+            setIsSaving(false);
+            return;
+          }
         }
         
-        const record: RevenueRecord = {
-          id: editingData ? editingData.id : generateId(),
-          month,
-          year: Number(year),
-          category: category || categories[0] || DEFAULT_CATEGORIES[0],
-          amount: Number(amount),
-          notes,
-          dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
-        };
+        // Save each row sequentially
+        for (const row of revenueRows) {
+          const record: RevenueRecord = {
+            id: editingData ? editingData.id : generateId(),
+            month,
+            year: Number(year),
+            category: row.category || categories[0] || DEFAULT_CATEGORIES[0],
+            amount: Number(row.amount),
+            notes: row.notes,
+            dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
+          };
 
-        if (editingData) {
-          await onUpdateData(record);
-        } else {
-          await onAddData(record);
+          if (editingData) {
+            await onUpdateData(record);
+          } else {
+            await onAddData(record);
+          }
         }
+        setSuccessMessage(`${revenueRows.length} data pendapatan berhasil disimpan ke cloud database.`);
       } else if (activeTab === 'production') {
-        if (plta === '' || isNaN(Number(plta))) {
-          alert("Mohon isi produksi PLTA dengan angka yang valid.");
-          setIsSaving(false);
-          return;
-        }
-        if (miniHydro === '' || isNaN(Number(miniHydro))) {
-          alert("Mohon isi produksi Mini Hydro dengan angka yang valid.");
-          setIsSaving(false);
-          return;
-        }
-        if (pln === '' || isNaN(Number(pln))) {
-          alert("Mohon isi produksi PLN dengan angka yang valid.");
-          setIsSaving(false);
-          return;
-        }
-        if (ps === '' || isNaN(Number(ps))) {
-          alert("Mohon isi produksi PS dengan angka yang valid.");
-          setIsSaving(false);
-          return;
+        // Validate all rows
+        for (const row of productionRows) {
+          if (row.plta === '' || isNaN(Number(row.plta))) {
+            alert("Mohon isi produksi PLTA dengan angka yang valid.");
+            setIsSaving(false);
+            return;
+          }
+          if (row.miniHydro === '' || isNaN(Number(row.miniHydro))) {
+            alert("Mohon isi produksi Mini Hydro dengan angka yang valid.");
+            setIsSaving(false);
+            return;
+          }
+          if (row.pln === '' || isNaN(Number(row.pln))) {
+            alert("Mohon isi produksi PLN dengan angka yang valid.");
+            setIsSaving(false);
+            return;
+          }
+          if (row.ps === '' || isNaN(Number(row.ps))) {
+            alert("Mohon isi produksi PS dengan angka yang valid.");
+            setIsSaving(false);
+            return;
+          }
         }
 
-        const record: ProductionRecord = {
-          id: editingData ? editingData.id : generateId(),
-          month,
-          year: Number(year),
-          plta: Number(plta),
-          miniHydro: Number(miniHydro),
-          pln: Number(pln),
-          ps: Number(ps),
-          dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
-        };
+        // Save each row sequentially
+        for (const row of productionRows) {
+          const record: ProductionRecord = {
+            id: editingData ? editingData.id : generateId(),
+            month,
+            year: Number(year),
+            plta: Number(row.plta),
+            miniHydro: Number(row.miniHydro),
+            pln: Number(row.pln),
+            ps: Number(row.ps),
+            dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
+          };
 
-        if (editingData) {
-          await onUpdateProductionData(record);
-        } else {
-          await onAddProductionData(record);
+          if (editingData) {
+            await onUpdateProductionData(record);
+          } else {
+            await onAddProductionData(record);
+          }
         }
+        setSuccessMessage(`${productionRows.length} data produksi berhasil disimpan ke cloud database.`);
       } else if (activeTab === 'ps_terjual') {
-        if (!customerName.trim()) {
-          alert("Mohon isi nama perusahaan atau pelanggan.");
-          setIsSaving(false);
-          return;
-        }
-        if (kwhValue === '' || isNaN(Number(kwhValue))) {
-          alert("Mohon isi jumlah kWh dengan angka yang valid.");
-          setIsSaving(false);
-          return;
-        }
-        if (rupiahValue === '' || isNaN(Number(rupiahValue))) {
-          alert("Mohon isi jumlah Rupiah dengan angka yang valid.");
-          setIsSaving(false);
-          return;
+        // Validate all rows
+        for (const row of psRows) {
+          if (!row.customerName.trim()) {
+            alert("Mohon isi nama perusahaan atau pelanggan.");
+            setIsSaving(false);
+            return;
+          }
+          if (row.kwhValue === '' || isNaN(Number(row.kwhValue))) {
+            alert("Mohon isi jumlah kWh dengan angka yang valid.");
+            setIsSaving(false);
+            return;
+          }
+          if (row.rupiahValue === '' || isNaN(Number(row.rupiahValue))) {
+            alert("Mohon isi jumlah Rupiah dengan angka yang valid.");
+            setIsSaving(false);
+            return;
+          }
         }
 
-        const record: PSTerjualRecord = {
-          id: editingData ? editingData.id : generateId(),
-          month,
-          year: Number(year),
-          category: psCategory,
-          customerName: customerName.trim(),
-          kwhValue: Number(kwhValue),
-          rupiahValue: Number(rupiahValue),
-          dateAdded: editingData ? (editingData as PSTerjualRecord).dateAdded : new Date().toISOString(),
-        };
+        // Save each row sequentially
+        for (const row of psRows) {
+          const record: PSTerjualRecord = {
+            id: editingData ? editingData.id : generateId(),
+            month,
+            year: Number(year),
+            category: row.category,
+            customerName: row.customerName.trim(),
+            kwhValue: Number(row.kwhValue),
+            rupiahValue: Number(row.rupiahValue),
+            dateAdded: editingData ? (editingData as PSTerjualRecord).dateAdded : new Date().toISOString(),
+          };
 
-        if (editingData) {
-          await onUpdatePsData(record);
-        } else {
-          await onAddPsData(record);
+          if (editingData) {
+            await onUpdatePsData(record);
+          } else {
+            await onAddPsData(record);
+          }
         }
+        setSuccessMessage(`${psRows.length} data PS Terjual berhasil disimpan ke cloud database.`);
       } else {
-        const record: TransmissionRecord = {
-          id: editingData ? editingData.id : generateId(),
-          month,
-          year: Number(year),
-          curugKirim: Number(curugKirim) || 0,
-          curugTerima: Number(curugTerima) || 0,
-          pdlrg1Kirim: Number(pdlrg1Kirim) || 0,
-          pdlrg1Terima: Number(pdlrg1Terima) || 0,
-          pdlrg2Kirim: Number(pdlrg2Kirim) || 0,
-          pdlrg2Terima: Number(pdlrg2Terima) || 0,
-          tatajabar1Kirim: Number(tatajabar1Kirim) || 0,
-          tatajabar1Terima: Number(tatajabar1Terima) || 0,
-          tatajabar2Kirim: Number(tatajabar2Kirim) || 0,
-          tatajabar2Terima: Number(tatajabar2Terima) || 0,
-          lineIndustriKirim: Number(lineIndustriKirim) || 0,
-          lineIndustriTerima: Number(lineIndustriTerima) || 0,
-          pupukKujangKirim: Number(pupukKujangKirim) || 0,
-          pupukKujangTerima: Number(pupukKujangTerima) || 0,
-          dateAdded: editingData ? (editingData as TransmissionRecord).dateAdded : new Date().toISOString(),
-        };
-
-        if (editingData) {
-          onUpdateTransmissionData && await onUpdateTransmissionData(record);
-        } else {
-          onAddTransmissionData && await onAddTransmissionData(record);
+        // Transmission validations
+        for (const row of transmissionRows) {
+          // No complex validation required for transmission since fields have defaults
         }
+
+        // Save each row sequentially
+        for (const row of transmissionRows) {
+          const record: TransmissionRecord = {
+            id: editingData ? editingData.id : generateId(),
+            month,
+            year: Number(year),
+            curugKirim: Number(row.curugKirim) || 0,
+            curugTerima: Number(row.curugTerima) || 0,
+            pdlrg1Kirim: Number(row.pdlrg1Kirim) || 0,
+            pdlrg1Terima: Number(row.pdlrg1Terima) || 0,
+            pdlrg2Kirim: Number(row.pdlrg2Kirim) || 0,
+            pdlrg2Terima: Number(row.pdlrg2Terima) || 0,
+            tatajabar1Kirim: Number(row.tatajabar1Kirim) || 0,
+            tatajabar1Terima: Number(row.tatajabar1Terima) || 0,
+            tatajabar2Kirim: Number(row.tatajabar2Kirim) || 0,
+            tatajabar2Terima: Number(row.tatajabar2Terima) || 0,
+            lineIndustriKirim: Number(row.lineIndustriKirim) || 0,
+            lineIndustriTerima: Number(row.lineIndustriTerima) || 0,
+            pupukKujangKirim: Number(row.pupukKujangKirim) || 0,
+            pupukKujangTerima: Number(row.pupukKujangTerima) || 0,
+            dateAdded: editingData ? (editingData as TransmissionRecord).dateAdded : new Date().toISOString(),
+          };
+
+          if (editingData) {
+            onUpdateTransmissionData && await onUpdateTransmissionData(record);
+          } else {
+            onAddTransmissionData && await onAddTransmissionData(record);
+          }
+        }
+        setSuccessMessage(`${transmissionRows.length} data penugasan transmisi berhasil disimpan ke cloud database.`);
       }
       
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 4000);
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Error saving data:", err);
@@ -708,70 +845,102 @@ export function DataManagementView({
               </tbody>
             </table>
           ) : activeTab === 'ps_terjual' ? (
-            <table className="w-full text-left">
-              <thead className="bg-slate-800/50 text-slate-500 text-xs uppercase font-bold tracking-wider">
-                <tr>
-                  <th scope="col" className="px-6 py-4">Periode</th>
-                  <th scope="col" className="px-6 py-4">Kategori</th>
-                  <th scope="col" className="px-6 py-4">Nama Pelanggan / Perusahaan</th>
-                  <th scope="col" className="px-6 py-4 text-right">Penyaluran (kWh)</th>
-                  <th scope="col" className="px-6 py-4 text-right">Pendapatan (Rupiah)</th>
-                  <th scope="col" className="px-6 py-4 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm text-slate-300">
-                {filteredPsData.length > 0 ? (
-                  filteredPsData.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-white font-medium">
-                        {row.month} {row.year}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${
-                          row.category === 'INDUSTRI / PERUSAHAAN'
-                            ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
-                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        }`}>
-                          {row.category}
+            <div className="p-6 space-y-8 bg-slate-950/20">
+              {groupedPsData.length > 0 ? (
+                groupedPsData.map((periodGroup) => (
+                  <div key={periodGroup.key} className="bg-slate-900/60 border border-slate-800/70 rounded-2xl overflow-hidden shadow-lg">
+                    {/* Period Header */}
+                    <div className="bg-slate-800/30 border-b border-slate-800/80 px-5 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                        <span className="text-base font-extrabold text-white tracking-wide uppercase">
+                          Periode: {periodGroup.month} {periodGroup.year}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 font-medium text-slate-200">
-                        {row.customerName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-indigo-400">
-                        {new Intl.NumberFormat('id-ID').format(row.kwhValue)} kWh
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-emerald-400">
-                        {formatRupiah(row.rupiahValue)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
-                        <button 
-                          onClick={() => openEditModal(row)}
-                          className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(row.id)}
-                          className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1"
-                        >
-                          Hapus
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
-                      <div className="flex flex-col items-center justify-center">
-                        <Filter className="h-10 w-10 text-slate-700 mb-3" />
-                        <p className="text-slate-400 font-medium text-base">Tidak ada data ditemukan</p>
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      <div className="flex flex-wrap gap-2.5">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                          Total Penyaluran: <strong className="font-mono ml-1.5 text-white">{new Intl.NumberFormat('id-ID').format(periodGroup.totalKwh)} kWh</strong>
+                        </span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                          Total Pendapatan: <strong className="font-mono ml-1.5 text-white">{formatRupiah(periodGroup.totalRupiah)}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Categories inside Period */}
+                    <div className="p-5 space-y-6">
+                      {periodGroup.categories.map((catGroup) => (
+                        <div key={catGroup.categoryName} className="bg-slate-950/40 rounded-xl p-4 border border-slate-800/60 shadow-sm">
+                          {/* Category Title & Subtotal */}
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 mb-3 gap-3">
+                            <span className={`inline-flex items-center px-3 py-1 rounded text-xs font-extrabold tracking-widest border uppercase ${
+                              catGroup.categoryName === 'INDUSTRI / PERUSAHAAN'
+                                ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            }`}>
+                              {catGroup.categoryName}
+                            </span>
+                            <div className="text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1 font-semibold">
+                              <span>Penyaluran: <strong className="text-indigo-400 font-mono text-sm ml-1">{new Intl.NumberFormat('id-ID').format(catGroup.subtotalKwh)} kWh</strong></span>
+                              <span className="text-slate-700 hidden sm:inline">|</span>
+                              <span>Pendapatan: <strong className="text-emerald-400 font-mono text-sm ml-1">{formatRupiah(catGroup.subtotalRupiah)}</strong></span>
+                            </div>
+                          </div>
+
+                          {/* Customers Table */}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest border-b border-slate-800/40 pb-2">
+                                  <th scope="col" className="pb-2 font-semibold">Nama Pelanggan / Perusahaan</th>
+                                  <th scope="col" className="pb-2 text-right font-semibold">Penyaluran (kWh)</th>
+                                  <th scope="col" className="pb-2 text-right font-semibold">Pendapatan (Rupiah)</th>
+                                  <th scope="col" className="pb-2 text-center font-semibold w-32">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody className="text-xs text-slate-300 divide-y divide-slate-800/20">
+                                {catGroup.items.map((row) => (
+                                  <tr key={row.id} className="hover:bg-slate-800/25 transition-colors group">
+                                    <td className="py-3 font-semibold text-slate-200 group-hover:text-white transition-colors">
+                                      {row.customerName}
+                                    </td>
+                                    <td className="py-3 text-right font-mono text-indigo-400 font-semibold text-sm">
+                                      {new Intl.NumberFormat('id-ID').format(row.kwhValue)} kWh
+                                    </td>
+                                    <td className="py-3 text-right font-mono text-emerald-400 font-semibold text-sm">
+                                      {formatRupiah(row.rupiahValue)}
+                                    </td>
+                                    <td className="py-3 text-center space-x-1 whitespace-nowrap">
+                                      <button 
+                                        onClick={() => openEditModal(row)}
+                                        className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-0.5 rounded hover:bg-indigo-500/5 font-semibold text-xs"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button 
+                                        onClick={() => handleDelete(row.id)}
+                                        className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-0.5 rounded hover:bg-rose-500/5 font-semibold text-xs"
+                                      >
+                                        Hapus
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-slate-500">
+                  <Filter className="h-10 w-10 text-slate-700 mx-auto mb-3" />
+                  <p className="text-slate-400 font-semibold text-base">Tidak ada data ditemukan</p>
+                </div>
+              )}
+            </div>
           ) : (
             <div>
               <div className="bg-slate-800/20 p-4 border-b border-slate-800 flex justify-between items-center">
@@ -968,7 +1137,7 @@ export function DataManagementView({
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative z-10 inline-block align-bottom bg-slate-900 border border-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:align-middle sm:max-w-lg w-full"
+                className="relative z-10 inline-block align-bottom bg-slate-900 border border-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:align-middle sm:max-w-2xl w-full"
               >
                 <form onSubmit={handleSubmit}>
                   <div className="bg-slate-900 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
@@ -1006,251 +1175,449 @@ export function DataManagementView({
                           </div>
 
                           {activeTab === 'revenue' ? (
-                            <>
-                              <div>
-                                <label htmlFor="category" className="block text-sm font-medium text-slate-400 mb-1">Kategori</label>
-                                <select
-                                  id="category"
-                                  value={category}
-                                  onChange={(e) => setCategory(e.target.value)}
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                  required
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                              {revenueRows.map((row, idx) => (
+                                <div key={idx} className="p-3 bg-slate-800/40 border border-slate-700/60 rounded-xl space-y-3 relative">
+                                  {revenueRows.length > 1 && !editingData && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setRevenueRows(revenueRows.filter((_, rIdx) => rIdx !== idx))}
+                                      className="absolute top-2 right-2 text-rose-400 hover:text-rose-300 p-1"
+                                      title="Hapus baris ini"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <p className="text-xs font-semibold text-indigo-400">Baris #{idx + 1}</p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Kategori</label>
+                                      <select
+                                        value={row.category}
+                                        onChange={(e) => {
+                                          const next = [...revenueRows];
+                                          next[idx].category = e.target.value;
+                                          setRevenueRows(next);
+                                        }}
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                      >
+                                        {categories.length > 0 ? categories.map(c => <option key={c} value={c}>{c}</option>) : DEFAULT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Jumlah Pendapatan (Rp)</label>
+                                      <input
+                                        type="number"
+                                        value={row.amount}
+                                        onChange={(e) => {
+                                          const next = [...revenueRows];
+                                          next[idx].amount = e.target.value;
+                                          setRevenueRows(next);
+                                        }}
+                                        placeholder="Contoh: 15000000"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                        min="0"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">Catatan (Opsional)</label>
+                                    <input
+                                      type="text"
+                                      value={row.notes}
+                                      onChange={(e) => {
+                                        const next = [...revenueRows];
+                                        next[idx].notes = e.target.value;
+                                        setRevenueRows(next);
+                                      }}
+                                      placeholder="Tambahkan keterangan jika perlu..."
+                                      className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+
+                              {!editingData && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRevenueRows([...revenueRows, { category: categories[0] || DEFAULT_CATEGORIES[0], amount: '', notes: '' }])}
+                                  className="w-full py-2 border border-dashed border-indigo-500/50 rounded-xl text-xs font-semibold text-indigo-400 hover:bg-indigo-500/5 hover:border-indigo-500 transition-colors flex items-center justify-center gap-1"
                                 >
-                                  {categories.length > 0 ? categories.map(c => <option key={c} value={c}>{c}</option>) : DEFAULT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label htmlFor="amount" className="block text-sm font-medium text-slate-400 mb-1">
-                                  Jumlah Pendapatan (Rp)
-                                </label>
-                                <input
-                                  type="number"
-                                  id="amount"
-                                  value={amount}
-                                  onChange={(e) => setAmount(e.target.value)}
-                                  placeholder="Contoh: 15000000"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                  min="0"
-                                />
-                              </div>
-
-                              <div>
-                                <label htmlFor="notes" className="block text-sm font-medium text-slate-400 mb-1">Catatan (Opsional)</label>
-                                <textarea
-                                  id="notes"
-                                  value={notes}
-                                  onChange={(e) => setNotes(e.target.value)}
-                                  rows={3}
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  placeholder="Tambahkan keterangan jika perlu..."
-                                />
-                              </div>
-                            </>
+                                  <Plus className="w-4 h-4" /> Tambah Baris Baru
+                                </button>
+                              )}
+                            </div>
                           ) : activeTab === 'production' ? (
-                            <>
-                              <div>
-                                <label htmlFor="plta" className="block text-sm font-medium text-slate-400 mb-1">Produksi PLTA (kWh)</label>
-                                <input
-                                  type="number"
-                                  id="plta"
-                                  value={plta}
-                                  onChange={(e) => setPlta(e.target.value)}
-                                  placeholder="Contoh: 89804820"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                  min="0"
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="miniHydro" className="block text-sm font-medium text-slate-400 mb-1">Produksi Mini Hydro (kWh)</label>
-                                <input
-                                  type="number"
-                                  id="miniHydro"
-                                  value={miniHydro}
-                                  onChange={(e) => setMiniHydro(e.target.value)}
-                                  placeholder="Contoh: 350000"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                  min="0"
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="pln" className="block text-sm font-medium text-slate-400 mb-1">Produksi PLN (kWh)</label>
-                                <input
-                                  type="number"
-                                  id="pln"
-                                  value={pln}
-                                  onChange={(e) => setPln(e.target.value)}
-                                  placeholder="Contoh: 37972050"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                  min="0"
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="ps" className="block text-sm font-medium text-slate-400 mb-1">
-                                  Produksi PS (kWh)
-                                </label>
-                                <input
-                                  type="number"
-                                  id="ps"
-                                  value={ps}
-                                  onChange={(e) => setPs(e.target.value)}
-                                  placeholder="Contoh: 52182770"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                  min="0"
-                                />
-                              </div>
-                            </>
-                          ) : activeTab === 'ps_terjual' ? (
-                            <>
-                              <div>
-                                <label htmlFor="psCategory" className="block text-sm font-medium text-slate-400 mb-1">Kategori Kelompok</label>
-                                <select
-                                  id="psCategory"
-                                  value={psCategory}
-                                  onChange={(e) => setPsCategory(e.target.value as any)}
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                  required
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                              {productionRows.map((row, idx) => (
+                                <div key={idx} className="p-3 bg-slate-800/40 border border-slate-700/60 rounded-xl space-y-3 relative">
+                                  {productionRows.length > 1 && !editingData && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setProductionRows(productionRows.filter((_, rIdx) => rIdx !== idx))}
+                                      className="absolute top-2 right-2 text-rose-400 hover:text-rose-300 p-1"
+                                      title="Hapus baris ini"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <p className="text-xs font-semibold text-indigo-400">Baris #{idx + 1}</p>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Produksi PLTA (kWh)</label>
+                                      <input
+                                        type="number"
+                                        value={row.plta}
+                                        onChange={(e) => {
+                                          const next = [...productionRows];
+                                          next[idx].plta = e.target.value;
+                                          setProductionRows(next);
+                                        }}
+                                        placeholder="Contoh: 89804820"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                        min="0"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Produksi Mini Hydro (kWh)</label>
+                                      <input
+                                        type="number"
+                                        value={row.miniHydro}
+                                        onChange={(e) => {
+                                          const next = [...productionRows];
+                                          next[idx].miniHydro = e.target.value;
+                                          setProductionRows(next);
+                                        }}
+                                        placeholder="Contoh: 350000"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                        min="0"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Produksi PLN (kWh)</label>
+                                      <input
+                                        type="number"
+                                        value={row.pln}
+                                        onChange={(e) => {
+                                          const next = [...productionRows];
+                                          next[idx].pln = e.target.value;
+                                          setProductionRows(next);
+                                        }}
+                                        placeholder="Contoh: 37972050"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                        min="0"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Produksi PS (kWh)</label>
+                                      <input
+                                        type="number"
+                                        value={row.ps}
+                                        onChange={(e) => {
+                                          const next = [...productionRows];
+                                          next[idx].ps = e.target.value;
+                                          setProductionRows(next);
+                                        }}
+                                        placeholder="Contoh: 52182770"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                        min="0"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {!editingData && (
+                                <button
+                                  type="button"
+                                  onClick={() => setProductionRows([...productionRows, { plta: '', miniHydro: '', pln: '', ps: '' }])}
+                                  className="w-full py-2 border border-dashed border-indigo-500/50 rounded-xl text-xs font-semibold text-indigo-400 hover:bg-indigo-500/5 hover:border-indigo-500 transition-colors flex items-center justify-center gap-1"
                                 >
-                                  <option value="INDUSTRI / PERUSAHAAN">INDUSTRI / PERUSAHAAN</option>
-                                  <option value="PERUMAHAN & WARUNG">PERUMAHAN & WARUNG</option>
-                                </select>
-                              </div>
+                                  <Plus className="w-4 h-4" /> Tambah Baris Baru
+                                </button>
+                              )}
+                            </div>
+                          ) : activeTab === 'ps_terjual' ? (
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                              {psRows.map((row, idx) => (
+                                <div key={idx} className="p-3 bg-slate-800/40 border border-slate-700/60 rounded-xl space-y-3 relative">
+                                  {psRows.length > 1 && !editingData && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPsRows(psRows.filter((_, rIdx) => rIdx !== idx))}
+                                      className="absolute top-2 right-2 text-rose-400 hover:text-rose-300 p-1"
+                                      title="Hapus baris ini"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <p className="text-xs font-semibold text-indigo-400">Baris #{idx + 1}</p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Kategori Kelompok</label>
+                                      <select
+                                        value={row.category}
+                                        onChange={(e) => {
+                                          const next = [...psRows];
+                                          next[idx].category = e.target.value as any;
+                                          setPsRows(next);
+                                        }}
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                      >
+                                        <option value="INDUSTRI / PERUSAHAAN">INDUSTRI / PERUSAHAAN</option>
+                                        <option value="PERUMAHAN & WARUNG">PERUMAHAN & WARUNG</option>
+                                      </select>
+                                    </div>
 
-                              <div>
-                                <label htmlFor="customerName" className="block text-sm font-medium text-slate-400 mb-1">Nama Perusahaan / Pelanggan</label>
-                                <input
-                                  type="text"
-                                  id="customerName"
-                                  value={customerName}
-                                  onChange={(e) => setCustomerName(e.target.value)}
-                                  placeholder="Contoh: PT. INDOTAMA FERRO ALLOYS"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                />
-                              </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Nama Perusahaan / Pelanggan</label>
+                                      <input
+                                        type="text"
+                                        value={row.customerName}
+                                        onChange={(e) => {
+                                          const next = [...psRows];
+                                          next[idx].customerName = e.target.value;
+                                          setPsRows(next);
+                                        }}
+                                        placeholder="Contoh: PT. INDOTAMA FERRO ALLOYS"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                      />
+                                    </div>
 
-                              <div>
-                                <label htmlFor="kwhValue" className="block text-sm font-medium text-slate-400 mb-1">Volume Penyaluran (kWh)</label>
-                                <input
-                                  type="number"
-                                  step="any"
-                                  id="kwhValue"
-                                  value={kwhValue}
-                                  onChange={(e) => setKwhValue(e.target.value)}
-                                  placeholder="Contoh: 29885655.93"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                  min="0"
-                                />
-                              </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Volume Penyaluran (kWh)</label>
+                                      <input
+                                        type="number"
+                                        step="any"
+                                        value={row.kwhValue}
+                                        onChange={(e) => {
+                                          const next = [...psRows];
+                                          next[idx].kwhValue = e.target.value;
+                                          setPsRows(next);
+                                        }}
+                                        placeholder="Contoh: 29885655.93"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                        min="0"
+                                      />
+                                    </div>
 
-                              <div>
-                                <label htmlFor="rupiahValue" className="block text-sm font-medium text-slate-400 mb-1">Pendapatan Penjualan (Rupiah)</label>
-                                <input
-                                  type="number"
-                                  step="any"
-                                  id="rupiahValue"
-                                  value={rupiahValue}
-                                  onChange={(e) => setRupiahValue(e.target.value)}
-                                  placeholder="Contoh: 23830523182"
-                                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-slate-500"
-                                  required
-                                  min="0"
-                                />
-                              </div>
-                            </>
+                                    <div>
+                                      <label className="block text-xs font-medium text-slate-400 mb-1">Pendapatan Penjualan (Rupiah)</label>
+                                      <input
+                                        type="number"
+                                        step="any"
+                                        value={row.rupiahValue}
+                                        onChange={(e) => {
+                                          const next = [...psRows];
+                                          next[idx].rupiahValue = e.target.value;
+                                          setPsRows(next);
+                                        }}
+                                        placeholder="Contoh: 23830523182"
+                                        className="w-full px-3 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        required
+                                        min="0"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {!editingData && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPsRows([...psRows, { category: 'INDUSTRI / PERUSAHAAN', customerName: '', kwhValue: '', rupiahValue: '' }])}
+                                  className="w-full py-2 border border-dashed border-indigo-500/50 rounded-xl text-xs font-semibold text-indigo-400 hover:bg-indigo-500/5 hover:border-indigo-500 transition-colors flex items-center justify-center gap-1"
+                                >
+                                  <Plus className="w-4 h-4" /> Tambah Baris Baru
+                                </button>
+                              )}
+                            </div>
                           ) : (
-                            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
-                              <p className="text-xs font-semibold text-indigo-400 border-b border-indigo-950 pb-1 mb-2">Penghantar Transmisi Detail PHT (kWh)</p>
-                              
-                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
-                                <h4 className="col-span-2 text-xs font-bold text-slate-300">1. PHT Curug</h4>
-                                <div>
-                                  <label className="text-xs text-slate-500">Kirim</label>
-                                  <input type="number" step="any" value={curugKirim} onChange={(e) => setCurugKirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-500">Terima</label>
-                                  <input type="number" step="any" value={curugTerima} onChange={(e) => setCurugTerima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                              </div>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                              {transmissionRows.map((row, idx) => (
+                                <div key={idx} className="p-3 bg-slate-800/40 border border-slate-700/60 rounded-xl space-y-3 relative">
+                                  {transmissionRows.length > 1 && !editingData && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setTransmissionRows(transmissionRows.filter((_, rIdx) => rIdx !== idx))}
+                                      className="absolute top-2 right-2 text-rose-400 hover:text-rose-300 p-1"
+                                      title="Hapus baris ini"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <p className="text-xs font-semibold text-indigo-400 border-b border-indigo-950/60 pb-1 mb-2">Baris #{idx + 1} - Penghantar Transmisi Detail PHT (kWh)</p>
+                                  
+                                  <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                    <h4 className="col-span-2 text-xs font-bold text-slate-300">1. PHT Curug</h4>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Kirim</label>
+                                      <input type="number" step="any" value={row.curugKirim} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].curugKirim = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Terima</label>
+                                      <input type="number" step="any" value={row.curugTerima} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].curugTerima = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                  </div>
 
-                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
-                                <h4 className="col-span-2 text-xs font-bold text-slate-300">2. PHT Padalarang 1 (PDLRG 1)</h4>
-                                <div>
-                                  <label className="text-xs text-slate-500">Kirim</label>
-                                  <input type="number" step="any" value={pdlrg1Kirim} onChange={(e) => setPdlrg1Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-500">Terima</label>
-                                  <input type="number" step="any" value={pdlrg1Terima} onChange={(e) => setPdlrg1Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                              </div>
+                                  <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                    <h4 className="col-span-2 text-xs font-bold text-slate-300">2. PHT Padalarang 1 (PDLRG 1)</h4>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Kirim</label>
+                                      <input type="number" step="any" value={row.pdlrg1Kirim} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].pdlrg1Kirim = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Terima</label>
+                                      <input type="number" step="any" value={row.pdlrg1Terima} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].pdlrg1Terima = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                  </div>
 
-                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
-                                <h4 className="col-span-2 text-xs font-bold text-slate-300">3. PHT Padalarang 2 (PDLRG 2)</h4>
-                                <div>
-                                  <label className="text-xs text-slate-500">Kirim</label>
-                                  <input type="number" step="any" value={pdlrg2Kirim} onChange={(e) => setPdlrg2Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-500">Terima</label>
-                                  <input type="number" step="any" value={pdlrg2Terima} onChange={(e) => setPdlrg2Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                              </div>
+                                  <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                    <h4 className="col-span-2 text-xs font-bold text-slate-300">3. PHT Padalarang 2 (PDLRG 2)</h4>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Kirim</label>
+                                      <input type="number" step="any" value={row.pdlrg2Kirim} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].pdlrg2Kirim = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Terima</label>
+                                      <input type="number" step="any" value={row.pdlrg2Terima} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].pdlrg2Terima = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                  </div>
 
-                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
-                                <h4 className="col-span-2 text-xs font-bold text-slate-300">4. PHT Tata Jabar 1</h4>
-                                <div>
-                                  <label className="text-xs text-slate-500">Kirim</label>
-                                  <input type="number" step="any" value={tatajabar1Kirim} onChange={(e) => setTatajabar1Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-500">Terima</label>
-                                  <input type="number" step="any" value={tatajabar1Terima} onChange={(e) => setTatajabar1Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                              </div>
+                                  <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                    <h4 className="col-span-2 text-xs font-bold text-slate-300">4. PHT Tata Jabar 1</h4>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Kirim</label>
+                                      <input type="number" step="any" value={row.tatajabar1Kirim} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].tatajabar1Kirim = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Terima</label>
+                                      <input type="number" step="any" value={row.tatajabar1Terima} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].tatajabar1Terima = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                  </div>
 
-                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
-                                <h4 className="col-span-2 text-xs font-bold text-slate-300">5. PHT Tata Jabar 2</h4>
-                                <div>
-                                  <label className="text-xs text-slate-500">Kirim</label>
-                                  <input type="number" step="any" value={tatajabar2Kirim} onChange={(e) => setTatajabar2Kirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-500">Terima</label>
-                                  <input type="number" step="any" value={tatajabar2Terima} onChange={(e) => setTatajabar2Terima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                              </div>
+                                  <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                    <h4 className="col-span-2 text-xs font-bold text-slate-300">5. PHT Tata Jabar 2</h4>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Kirim</label>
+                                      <input type="number" step="any" value={row.tatajabar2Kirim} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].tatajabar2Kirim = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Terima</label>
+                                      <input type="number" step="any" value={row.tatajabar2Terima} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].tatajabar2Terima = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                  </div>
 
-                              <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
-                                <h4 className="col-span-2 text-xs font-bold text-slate-300">6. PHT Line Industri</h4>
-                                <div>
-                                  <label className="text-xs text-slate-500">Kirim</label>
-                                  <input type="number" step="any" value={lineIndustriKirim} onChange={(e) => setLineIndustriKirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-500">Terima</label>
-                                  <input type="number" step="any" value={lineIndustriTerima} onChange={(e) => setLineIndustriTerima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                              </div>
+                                  <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800/60">
+                                    <h4 className="col-span-2 text-xs font-bold text-slate-300">6. PHT Line Industri</h4>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Kirim</label>
+                                      <input type="number" step="any" value={row.lineIndustriKirim} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].lineIndustriKirim = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Terima</label>
+                                      <input type="number" step="any" value={row.lineIndustriTerima} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].lineIndustriTerima = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                  </div>
 
-                              <div className="grid grid-cols-2 gap-3">
-                                <h4 className="col-span-2 text-xs font-bold text-slate-300">7. PHT Pupuk Kujang</h4>
-                                <div>
-                                  <label className="text-xs text-slate-500">Kirim</label>
-                                  <input type="number" step="any" value={pupukKujangKirim} onChange={(e) => setPupukKujangKirim(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <h4 className="col-span-2 text-xs font-bold text-slate-300">7. PHT Pupuk Kujang</h4>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Kirim</label>
+                                      <input type="number" step="any" value={row.pupukKujangKirim} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].pupukKujangKirim = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-slate-500">Terima</label>
+                                      <input type="number" step="any" value={row.pupukKujangTerima} onChange={(e) => {
+                                        const next = [...transmissionRows];
+                                        next[idx].pupukKujangTerima = e.target.value;
+                                        setTransmissionRows(next);
+                                      }} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="0" />
+                                    </div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <label className="text-xs text-slate-500">Terima</label>
-                                  <input type="number" step="any" value={pupukKujangTerima} onChange={(e) => setPupukKujangTerima(e.target.value)} className="w-full px-2 py-1 border border-slate-700 rounded bg-slate-800 text-slate-200 text-sm" placeholder="0" />
-                                </div>
-                              </div>
+                              ))}
+
+                              {!editingData && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTransmissionRows([...transmissionRows, {
+                                    curugKirim: '', curugTerima: '',
+                                    pdlrg1Kirim: '', pdlrg1Terima: '',
+                                    pdlrg2Kirim: '', pdlrg2Terima: '',
+                                    tatajabar1Kirim: '', tatajabar1Terima: '',
+                                    tatajabar2Kirim: '', tatajabar2Terima: '',
+                                    lineIndustriKirim: '', lineIndustriTerima: '',
+                                    pupukKujangKirim: '', pupukKujangTerima: '',
+                                  }])}
+                                  className="w-full py-2 border border-dashed border-indigo-500/50 rounded-xl text-xs font-semibold text-indigo-400 hover:bg-indigo-500/5 hover:border-indigo-500 transition-colors flex items-center justify-center gap-1"
+                                >
+                                  <Plus className="w-4 h-4" /> Tambah Baris Baru
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>

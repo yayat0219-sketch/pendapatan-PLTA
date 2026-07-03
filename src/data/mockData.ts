@@ -1,7 +1,7 @@
 import { RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord } from '../types';
 import { generateId } from '../lib/utils';
 
-export const MOCK_DATA: RevenueRecord[] = [
+const REAL_REVENUE_PART: RevenueRecord[] = [
   { id: generateId(), month: 'Januari', year: 2026, category: 'PLN (Persero)', amount: 14239518750, dateAdded: new Date('2026-01-31').toISOString() },
   { id: generateId(), month: 'Januari', year: 2026, category: 'PS Penugasan', amount: 1436214274, dateAdded: new Date('2026-01-31').toISOString() },
   { id: generateId(), month: 'Januari', year: 2026, category: 'PS Usaha', amount: 1899145882, dateAdded: new Date('2026-01-31').toISOString() },
@@ -28,12 +28,55 @@ export const MOCK_DATA: RevenueRecord[] = [
   { id: generateId(), month: 'Mei', year: 2026, category: 'Non PLN (Swasta) + Penduduk', amount: 41819677841, dateAdded: new Date('2026-05-31').toISOString() },
 ];
 
-export const MOCK_PRODUCTION_DATA: ProductionRecord[] = [
+const remainingMonths = ['Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const categoriesList = ['PLN (Persero)', 'PS Penugasan', 'PS Usaha', 'Non PLN (Swasta) + Penduduk'];
+
+const REMAINING_REVENUE: RevenueRecord[] = [];
+remainingMonths.forEach((m, rIdx) => {
+  const monthNum = 6 + rIdx;
+  
+  categoriesList.forEach((cat) => {
+    REMAINING_REVENUE.push({
+      id: `rev_2026_${m.toLowerCase()}_${cat.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`,
+      month: m,
+      year: 2026,
+      category: cat,
+      amount: 0,
+      dateAdded: new Date(`2026-${String(monthNum).padStart(2, '0')}-30`).toISOString()
+    });
+  });
+});
+
+export const MOCK_DATA: RevenueRecord[] = [
+  ...REAL_REVENUE_PART,
+  ...REMAINING_REVENUE
+];
+
+const REAL_PRODUCTION_PART: ProductionRecord[] = [
   { id: generateId(), month: 'Januari', year: 2026, plta: 89804820, miniHydro: 350000, pln: 37972050, dateAdded: new Date('2026-01-31').toISOString() },
   { id: generateId(), month: 'Februari', year: 2026, plta: 72335810, miniHydro: 155000, pln: 26124857, dateAdded: new Date('2026-02-28').toISOString() },
   { id: generateId(), month: 'Maret', year: 2026, plta: 96332720, miniHydro: 0, pln: 50394183, dateAdded: new Date('2026-03-31').toISOString() },
   { id: generateId(), month: 'April', year: 2026, plta: 88572820, miniHydro: 283000, pln: 35115754, dateAdded: new Date('2026-04-30').toISOString() },
   { id: generateId(), month: 'Mei', year: 2026, plta: 99621130, miniHydro: 720000, pln: 44185299, dateAdded: new Date('2026-05-31').toISOString() },
+];
+
+const REMAINING_PRODUCTION: ProductionRecord[] = remainingMonths.map((m, rIdx) => {
+  const monthNum = 6 + rIdx;
+  return {
+    id: `prod_2026_${m.toLowerCase()}`,
+    month: m,
+    year: 2026,
+    plta: 0,
+    miniHydro: 0,
+    pln: 0,
+    ps: 0,
+    dateAdded: new Date(`2026-${String(monthNum).padStart(2, '0')}-30`).toISOString()
+  };
+});
+
+export const MOCK_PRODUCTION_DATA: ProductionRecord[] = [
+  ...REAL_PRODUCTION_PART,
+  ...REMAINING_PRODUCTION
 ];
 
 const psRawData = [
@@ -250,9 +293,10 @@ const psRawData = [
 
 export const MOCK_PS_TERJUAL_DATA: PSTerjualRecord[] = [];
 psRawData.forEach((item, itemIdx) => {
+  // Add Jan-Mei
   Object.entries(item.months).forEach(([month, val]) => {
     MOCK_PS_TERJUAL_DATA.push({
-      id: `ps_${itemIdx}_${month}`,
+      id: `ps_${itemIdx}_${month.toLowerCase()}`,
       month,
       year: 2026,
       category: item.category,
@@ -260,6 +304,22 @@ psRawData.forEach((item, itemIdx) => {
       kwhValue: val.kwh,
       rupiahValue: val.rp,
       dateAdded: new Date('2026-05-31').toISOString()
+    });
+  });
+
+  // Add Juni-Desember
+  const remainingMonthsList = ['Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  remainingMonthsList.forEach((month, rIdx) => {
+    const monthNum = 6 + rIdx;
+    MOCK_PS_TERJUAL_DATA.push({
+      id: `ps_${itemIdx}_${month.toLowerCase()}`,
+      month,
+      year: 2026,
+      category: item.category,
+      customerName: item.customerName,
+      kwhValue: 0,
+      rupiahValue: 0,
+      dateAdded: new Date(`2026-${String(monthNum).padStart(2, '0')}-30`).toISOString()
     });
   });
 });
