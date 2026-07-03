@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "Revenue": {
+      "title": "Revenue Record",
+      "description": "Records of revenue from various sources/categories on a monthly basis",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "notes": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "dateAdded": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "category", "amount", "month", "year"]
+    },
+    "Production": {
+      "title": "Production Record",
+      "description": "Electricity production records across different plants and PLN",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "plta": { "type": "number" },
+        "miniHydro": { "type": "number" },
+        "pln": { "type": "number" },
+        "ps": { "type": "number" },
+        "dateAdded": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "month", "year", "plta", "miniHydro", "pln", "ps"]
+    },
+    "PSTerjual": {
+      "title": "PS Terjual Record",
+      "description": "Power purchase agreement records from dynamic buyers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "customerName": { "type": "string" },
+        "kwh": { "type": "number" },
+        "rupiah": { "type": "number" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "dateAdded": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "category", "customerName", "kwh", "rupiah", "month", "year"]
+    },
+    "Transmission": {
+      "title": "Transmission Record",
+      "description": "Electricity transmission records between points",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "curugKirim": { "type": "number" },
+        "curugTerima": { "type": "number" },
+        "pdlrg1Kirim": { "type": "number" },
+        "pdlrg1Terima": { "type": "number" },
+        "pdlrg2Kirim": { "type": "number" },
+        "pdlrg2Terima": { "type": "number" },
+        "tatajabar1Kirim": { "type": "number" },
+        "tatajabar1Terima": { "type": "number" },
+        "tatajabar2Kirim": { "type": "number" },
+        "tatajabar2Terima": { "type": "number" },
+        "lineIndustriKirim": { "type": "number" },
+        "lineIndustriTerima": { "type": "number" },
+        "pupukKujangKirim": { "type": "number" },
+        "pupukKujangTerima": { "type": "number" },
+        "dateAdded": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "month", "year", "curugKirim", "curugTerima", "pdlrg1Kirim", "pdlrg1Terima",
+        "pdlrg2Kirim", "pdlrg2Terima", "tatajabar1Kirim", "tatajabar1Terima", "tatajabar2Kirim",
+        "tatajabar2Terima", "lineIndustriKirim", "lineIndustriTerima", "pupukKujangKirim", "pupukKujangTerima"
+      ]
+    },
+    "SettingsCategories": {
+      "title": "Settings Categories Record",
+      "description": "System configuration containing custom revenue category options",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "list": { "type": "array" }
+      },
+      "required": ["id", "list"]
+    }
+  },
+  "firestore": {
+    "/revenue/{revenueId}": {
+      "schema": "Revenue",
+      "description": "Collection of monthly revenue data records"
+    },
+    "/production/{productionId}": {
+      "schema": "Production",
+      "description": "Collection of plant generation and purchase data records"
+    },
+    "/ps_terjual/{psTerjualId}": {
+      "schema": "PSTerjual",
+      "description": "Collection of power transmission sales data records"
+    },
+    "/transmission/{transmissionId}": {
+      "schema": "Transmission",
+      "description": "Collection of monthly sub-station line transmission readings"
+    },
+    "/settings/{settingId}": {
+      "schema": "SettingsCategories",
+      "description": "Configuration metadata containing list arrays"
+    }
+  }
+}

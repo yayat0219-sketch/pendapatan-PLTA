@@ -1,41 +1,87 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardView } from './views/DashboardView';
 import { DataManagementView } from './views/DataManagementView';
 import { SettingsView } from './views/SettingsView';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { ViewState, RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord, DEFAULT_CATEGORIES } from './types';
 import { MOCK_DATA, MOCK_PRODUCTION_DATA, MOCK_PS_TERJUAL_DATA, MOCK_TRANSMISSION_DATA } from './data/mockData';
+import { saveDocument, removeDocument, syncCollection, syncCategories, saveCategories } from './lib/firebase';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
-  const [data, setData] = useLocalStorage<RevenueRecord[]>('revtrack-data', MOCK_DATA);
-  const [productionData, setProductionData] = useLocalStorage<ProductionRecord[]>('revtrack-production-data-v3', MOCK_PRODUCTION_DATA);
-  const [psData, setPsData] = useLocalStorage<PSTerjualRecord[]>('revtrack-ps-data', MOCK_PS_TERJUAL_DATA);
-  const [transmissionData, setTransmissionData] = useLocalStorage<TransmissionRecord[]>('revtrack-transmission-data-v1', MOCK_TRANSMISSION_DATA);
-  const [categories, setCategories] = useLocalStorage<string[]>('revtrack-categories', DEFAULT_CATEGORIES);
+  const [data, setData] = useState<RevenueRecord[]>([]);
+  const [productionData, setProductionData] = useState<ProductionRecord[]>([]);
+  const [psData, setPsData] = useState<PSTerjualRecord[]>([]);
+  const [transmissionData, setTransmissionData] = useState<TransmissionRecord[]>([]);
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAddData = (record: RevenueRecord) => {
-    setData([...data, record]);
+  useEffect(() => {
+    const unsubRevenue = syncCollection<RevenueRecord>('revenue', (items) => {
+      setData(items);
+    }, MOCK_DATA);
+
+    const unsubProd = syncCollection<ProductionRecord>('production', (items) => {
+      setProductionData(items);
+    }, MOCK_PRODUCTION_DATA);
+
+    const unsubPs = syncCollection<PSTerjualRecord>('ps_terjual', (items) => {
+      setPsData(items);
+    }, MOCK_PS_TERJUAL_DATA);
+
+    const unsubTx = syncCollection<TransmissionRecord>('transmission', (items) => {
+      setTransmissionData(items);
+    }, MOCK_TRANSMISSION_DATA);
+
+    const unsubCats = syncCategories((list) => {
+      setCategories(list);
+      setIsLoading(false);
+    }, DEFAULT_CATEGORIES);
+
+    return () => {
+      unsubRevenue();
+      unsubProd();
+      unsubPs();
+      unsubTx();
+      unsubCats();
+    };
+  }, []);
+
+  const handleAddData = async (record: RevenueRecord) => {
+    await saveDocument('revenue', record);
   };
 
-  const handleUpdateData = (updatedRecord: RevenueRecord) => {
-    setData(data.map(item => item.id === updatedRecord.id ? updatedRecord : item));
+  const handleUpdateData = async (updatedRecord: RevenueRecord) => {
+    await saveDocument('revenue', updatedRecord);
   };
 
-  const handleDeleteData = (id: string) => {
-    setData(data.filter(item => item.id !== id));
+  const handleDeleteData = async (id: string) => {
+    await removeDocument('revenue', id);
   };
 
-  const handleUpdateCategories = (newCategories: string[]) => {
-    setCategories(newCategories);
+  const handleUpdateCategories = async (newCategories: string[]) => {
+    await saveCategories(newCategories);
   };
 
-  const handleClearData = () => {
-    setData([]);
-    setPsData([]);
-    setTransmissionData([]);
+  const handleClearData = async () => {
+    // Delete all records in all collections
+    const deletePromises = [
+      ...data.map(item => removeDocument('revenue', item.id)),
+      ...productionData.map(item => removeDocument('production', item.id)),
+      ...psData.map(item => removeDocument('ps_terjual', item.id)),
+      ...transmissionData.map(item => removeDocument('transmission', item.id))
+    ];
+    await Promise.all(deletePromises);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-200">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm font-medium text-slate-400">Menghubungkan ke database cloud...</p>
+      </div>
+    );
+  }
 
   return (
     <Layout currentView={currentView} onViewChange={setCurrentView}>
@@ -52,15 +98,15 @@ export default function App() {
           onAddData={handleAddData}
           onUpdateData={handleUpdateData}
           onDeleteData={handleDeleteData}
-          onAddProductionData={(record) => setProductionData([...productionData, record])}
-          onUpdateProductionData={(updated) => setProductionData(productionData.map(item => item.id === updated.id ? updated : item))}
-          onDeleteProductionData={(id) => setProductionData(productionData.filter(item => item.id !== id))}
-          onAddPsData={(record) => setPsData([...psData, record])}
-          onUpdatePsData={(updated) => setPsData(psData.map(item => item.id === updated.id ? updated : item))}
-          onDeletePsData={(id) => setPsData(psData.filter(item => item.id !== id))}
-          onAddTransmissionData={(record) => setTransmissionData([...transmissionData, record])}
-          onUpdateTransmissionData={(updated) => setTransmissionData(transmissionData.map(item => item.id === updated.id ? updated : item))}
-          onDeleteTransmissionData={(id) => setTransmissionData(transmissionData.filter(item => item.id !== id))}
+          onAddProductionData={(record) => saveDocument('production', record)}
+          onUpdateProductionData={(updated) => saveDocument('production', updated)}
+          onDeleteProductionData={(id) => removeDocument('production', id)}
+          onAddPsData={(record) => saveDocument('ps_terjual', record)}
+          onUpdatePsData={(updated) => saveDocument('ps_terjual', updated)}
+          onDeletePsData={(id) => removeDocument('ps_terjual', id)}
+          onAddTransmissionData={(record) => saveDocument('transmission', record)}
+          onUpdateTransmissionData={(updated) => saveDocument('transmission', updated)}
+          onDeleteTransmissionData={(id) => removeDocument('transmission', id)}
         />
       )}
       {currentView === 'settings' && (
@@ -73,3 +119,4 @@ export default function App() {
     </Layout>
   );
 }
+

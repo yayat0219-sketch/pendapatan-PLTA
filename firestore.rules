@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions for validation
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 2. Collections and rules
+    match /revenue/{revenueId} {
+      allow read: if true;
+      allow write: if isValidId(revenueId);
+    }
+
+    match /production/{productionId} {
+      allow read: if true;
+      allow write: if isValidId(productionId);
+    }
+
+    match /ps_terjual/{psTerjualId} {
+      allow read: if true;
+      allow write: if isValidId(psTerjualId);
+    }
+
+    match /transmission/{transmissionId} {
+      allow read: if true;
+      allow write: if isValidId(transmissionId);
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isValidId(settingId);
+    }
+  }
+}
