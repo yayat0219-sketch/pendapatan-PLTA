@@ -39,13 +39,13 @@
         "id": { "type": "string" },
         "category": { "type": "string" },
         "customerName": { "type": "string" },
-        "kwh": { "type": "number" },
-        "rupiah": { "type": "number" },
+        "kwhValue": { "type": "number" },
+        "rupiahValue": { "type": "number" },
         "month": { "type": "string" },
         "year": { "type": "number" },
         "dateAdded": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "category", "customerName", "kwh", "rupiah", "month", "year"]
+      "required": ["id", "category", "customerName", "kwhValue", "rupiahValue", "month", "year"]
     },
     "Transmission": {
       "title": "Transmission Record",

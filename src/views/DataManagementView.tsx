@@ -50,6 +50,8 @@ export function DataManagementView({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingData, setEditingData] = useState<RevenueRecord | ProductionRecord | PSTerjualRecord | TransmissionRecord | null>(null);
   const [expandedTxRow, setExpandedTxRow] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string | null; tabName: string }>({
     isOpen: false,
     id: null,
@@ -133,6 +135,8 @@ export function DataManagementView({
 
   const openAddModal = () => {
     setEditingData(null);
+    setSaveError(null);
+    setIsSaving(false);
     setMonth(MONTHS[0]);
     setYear(new Date().getFullYear());
     if (activeTab === 'revenue') {
@@ -170,6 +174,8 @@ export function DataManagementView({
 
   const openEditModal = (item: RevenueRecord | ProductionRecord | PSTerjualRecord | TransmissionRecord) => {
     setEditingData(item);
+    setSaveError(null);
+    setIsSaving(false);
     setMonth(item.month);
     setYear(item.year);
     
@@ -213,124 +219,152 @@ export function DataManagementView({
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    setSaveError(null);
     
-    if (activeTab === 'revenue') {
-      if (amount === '' || isNaN(Number(amount))) {
-        alert("Mohon isi jumlah pendapatan dengan angka yang valid.");
-        return;
+    try {
+      if (activeTab === 'revenue') {
+        if (amount === '' || isNaN(Number(amount))) {
+          alert("Mohon isi jumlah pendapatan dengan angka yang valid.");
+          setIsSaving(false);
+          return;
+        }
+        
+        const record: RevenueRecord = {
+          id: editingData ? editingData.id : generateId(),
+          month,
+          year: Number(year),
+          category: category || categories[0] || DEFAULT_CATEGORIES[0],
+          amount: Number(amount),
+          notes,
+          dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
+        };
+
+        if (editingData) {
+          await onUpdateData(record);
+        } else {
+          await onAddData(record);
+        }
+      } else if (activeTab === 'production') {
+        if (plta === '' || isNaN(Number(plta))) {
+          alert("Mohon isi produksi PLTA dengan angka yang valid.");
+          setIsSaving(false);
+          return;
+        }
+        if (miniHydro === '' || isNaN(Number(miniHydro))) {
+          alert("Mohon isi produksi Mini Hydro dengan angka yang valid.");
+          setIsSaving(false);
+          return;
+        }
+        if (pln === '' || isNaN(Number(pln))) {
+          alert("Mohon isi produksi PLN dengan angka yang valid.");
+          setIsSaving(false);
+          return;
+        }
+        if (ps === '' || isNaN(Number(ps))) {
+          alert("Mohon isi produksi PS dengan angka yang valid.");
+          setIsSaving(false);
+          return;
+        }
+
+        const record: ProductionRecord = {
+          id: editingData ? editingData.id : generateId(),
+          month,
+          year: Number(year),
+          plta: Number(plta),
+          miniHydro: Number(miniHydro),
+          pln: Number(pln),
+          ps: Number(ps),
+          dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
+        };
+
+        if (editingData) {
+          await onUpdateProductionData(record);
+        } else {
+          await onAddProductionData(record);
+        }
+      } else if (activeTab === 'ps_terjual') {
+        if (!customerName.trim()) {
+          alert("Mohon isi nama perusahaan atau pelanggan.");
+          setIsSaving(false);
+          return;
+        }
+        if (kwhValue === '' || isNaN(Number(kwhValue))) {
+          alert("Mohon isi jumlah kWh dengan angka yang valid.");
+          setIsSaving(false);
+          return;
+        }
+        if (rupiahValue === '' || isNaN(Number(rupiahValue))) {
+          alert("Mohon isi jumlah Rupiah dengan angka yang valid.");
+          setIsSaving(false);
+          return;
+        }
+
+        const record: PSTerjualRecord = {
+          id: editingData ? editingData.id : generateId(),
+          month,
+          year: Number(year),
+          category: psCategory,
+          customerName: customerName.trim(),
+          kwhValue: Number(kwhValue),
+          rupiahValue: Number(rupiahValue),
+          dateAdded: editingData ? (editingData as PSTerjualRecord).dateAdded : new Date().toISOString(),
+        };
+
+        if (editingData) {
+          await onUpdatePsData(record);
+        } else {
+          await onAddPsData(record);
+        }
+      } else {
+        const record: TransmissionRecord = {
+          id: editingData ? editingData.id : generateId(),
+          month,
+          year: Number(year),
+          curugKirim: Number(curugKirim) || 0,
+          curugTerima: Number(curugTerima) || 0,
+          pdlrg1Kirim: Number(pdlrg1Kirim) || 0,
+          pdlrg1Terima: Number(pdlrg1Terima) || 0,
+          pdlrg2Kirim: Number(pdlrg2Kirim) || 0,
+          pdlrg2Terima: Number(pdlrg2Terima) || 0,
+          tatajabar1Kirim: Number(tatajabar1Kirim) || 0,
+          tatajabar1Terima: Number(tatajabar1Terima) || 0,
+          tatajabar2Kirim: Number(tatajabar2Kirim) || 0,
+          tatajabar2Terima: Number(tatajabar2Terima) || 0,
+          lineIndustriKirim: Number(lineIndustriKirim) || 0,
+          lineIndustriTerima: Number(lineIndustriTerima) || 0,
+          pupukKujangKirim: Number(pupukKujangKirim) || 0,
+          pupukKujangTerima: Number(pupukKujangTerima) || 0,
+          dateAdded: editingData ? (editingData as TransmissionRecord).dateAdded : new Date().toISOString(),
+        };
+
+        if (editingData) {
+          onUpdateTransmissionData && await onUpdateTransmissionData(record);
+        } else {
+          onAddTransmissionData && await onAddTransmissionData(record);
+        }
       }
       
-      const record: RevenueRecord = {
-        id: editingData ? editingData.id : generateId(),
-        month,
-        year: Number(year),
-        category: category || categories[0] || DEFAULT_CATEGORIES[0],
-        amount: Number(amount),
-        notes,
-        dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
-      };
-
-      if (editingData) {
-        onUpdateData(record);
-      } else {
-        onAddData(record);
+      setIsModalOpen(false);
+    } catch (err: any) {
+      console.error("Error saving data:", err);
+      let errorMsg = "Gagal menyimpan data ke cloud database.";
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed && parsed.error) {
+          errorMsg = `Gagal menyimpan: ${parsed.error}`;
+        }
+      } catch (e) {
+        if (err instanceof Error) {
+          errorMsg = `Gagal menyimpan: ${err.message}`;
+        }
       }
-    } else if (activeTab === 'production') {
-      if (plta === '' || isNaN(Number(plta))) {
-        alert("Mohon isi produksi PLTA dengan angka yang valid.");
-        return;
-      }
-      if (miniHydro === '' || isNaN(Number(miniHydro))) {
-        alert("Mohon isi produksi Mini Hydro dengan angka yang valid.");
-        return;
-      }
-      if (pln === '' || isNaN(Number(pln))) {
-        alert("Mohon isi produksi PLN dengan angka yang valid.");
-        return;
-      }
-      if (ps === '' || isNaN(Number(ps))) {
-        alert("Mohon isi produksi PS dengan angka yang valid.");
-        return;
-      }
-
-      const record: ProductionRecord = {
-        id: editingData ? editingData.id : generateId(),
-        month,
-        year: Number(year),
-        plta: Number(plta),
-        miniHydro: Number(miniHydro),
-        pln: Number(pln),
-        ps: Number(ps),
-        dateAdded: editingData ? editingData.dateAdded : new Date().toISOString(),
-      };
-
-      if (editingData) {
-        onUpdateProductionData(record);
-      } else {
-        onAddProductionData(record);
-      }
-    } else if (activeTab === 'ps_terjual') {
-      if (!customerName.trim()) {
-        alert("Mohon isi nama perusahaan atau pelanggan.");
-        return;
-      }
-      if (kwhValue === '' || isNaN(Number(kwhValue))) {
-        alert("Mohon isi jumlah kWh dengan angka yang valid.");
-        return;
-      }
-      if (rupiahValue === '' || isNaN(Number(rupiahValue))) {
-        alert("Mohon isi jumlah Rupiah dengan angka yang valid.");
-        return;
-      }
-
-      const record: PSTerjualRecord = {
-        id: editingData ? editingData.id : generateId(),
-        month,
-        year: Number(year),
-        category: psCategory,
-        customerName: customerName.trim(),
-        kwhValue: Number(kwhValue),
-        rupiahValue: Number(rupiahValue),
-        dateAdded: editingData ? (editingData as PSTerjualRecord).dateAdded : new Date().toISOString(),
-      };
-
-      if (editingData) {
-        onUpdatePsData(record);
-      } else {
-        onAddPsData(record);
-      }
-    } else {
-      const record: TransmissionRecord = {
-        id: editingData ? editingData.id : generateId(),
-        month,
-        year: Number(year),
-        curugKirim: Number(curugKirim) || 0,
-        curugTerima: Number(curugTerima) || 0,
-        pdlrg1Kirim: Number(pdlrg1Kirim) || 0,
-        pdlrg1Terima: Number(pdlrg1Terima) || 0,
-        pdlrg2Kirim: Number(pdlrg2Kirim) || 0,
-        pdlrg2Terima: Number(pdlrg2Terima) || 0,
-        tatajabar1Kirim: Number(tatajabar1Kirim) || 0,
-        tatajabar1Terima: Number(tatajabar1Terima) || 0,
-        tatajabar2Kirim: Number(tatajabar2Kirim) || 0,
-        tatajabar2Terima: Number(tatajabar2Terima) || 0,
-        lineIndustriKirim: Number(lineIndustriKirim) || 0,
-        lineIndustriTerima: Number(lineIndustriTerima) || 0,
-        pupukKujangKirim: Number(pupukKujangKirim) || 0,
-        pupukKujangTerima: Number(pupukKujangTerima) || 0,
-        dateAdded: editingData ? (editingData as TransmissionRecord).dateAdded : new Date().toISOString(),
-      };
-
-      if (editingData) {
-        onUpdateTransmissionData && onUpdateTransmissionData(record);
-      } else {
-        onAddTransmissionData && onAddTransmissionData(record);
-      }
+      setSaveError(errorMsg);
+    } finally {
+      setIsSaving(false);
     }
-    
-    setIsModalOpen(false);
   };
 
   const handleDelete = (id: string) => {
@@ -1223,17 +1257,36 @@ export function DataManagementView({
                       </div>
                     </div>
                   </div>
-                  <div className="bg-slate-800/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-slate-800">
+                  {saveError && (
+                    <div className="mx-4 sm:mx-6 mt-3 p-3 bg-rose-950/50 border border-rose-800/50 rounded-lg text-rose-300 text-xs flex items-start gap-2">
+                      <span className="font-bold flex-shrink-0 text-rose-400">⚠️ Error:</span>
+                      <span className="break-all">{saveError}</span>
+                    </div>
+                  )}
+
+                  <div className="bg-slate-800/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-slate-800 mt-4">
                     <button
                       type="submit"
-                      className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                      disabled={isSaving}
+                      className="w-full inline-flex justify-center items-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Simpan Data
+                      {isSaving ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Menyimpan...
+                        </>
+                      ) : (
+                        'Simpan Data'
+                      )}
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(false)}
-                      className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-700 shadow-sm px-4 py-2 bg-slate-800 text-base font-medium text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
+                      disabled={isSaving}
+                      className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-700 shadow-sm px-4 py-2 bg-slate-800 text-base font-medium text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Batal
                     </button>
