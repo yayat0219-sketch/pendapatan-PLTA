@@ -81,6 +81,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const totalRevenue = useMemo(() => filteredData.reduce((sum, item) => sum + item.amount, 0), [filteredData]);
   const totalPln = useMemo(() => filteredData.filter(d => d.category === 'PLN (Persero)').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
   const totalPs = useMemo(() => filteredData.filter(d => d.category !== 'PLN (Persero)').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
+  const totalNetto = useMemo(() => filteredData.filter(d => d.category === 'PLN (Persero)' || d.category.includes('Non PLN (Swasta)')).reduce((sum, item) => sum + item.amount, 0), [filteredData]);
 
   // Filtering Scale factor to dynamically calculate active targets (Quarter = 1/4, Month = 1/12, Semua = 1)
   const scaleFactor = useMemo(() => {
@@ -98,8 +99,8 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   // RKAP Netto Target Comparison (RKAP Netto Target: Rp 576.942.988.460)
   const RKAP_NETTO_TARGET = 576942988460;
   const currentRkapNettoTarget = useMemo(() => RKAP_NETTO_TARGET * scaleFactor, [scaleFactor]);
-  const rkapNettoPercentageCurrent = useMemo(() => (totalRevenue / currentRkapNettoTarget) * 100, [totalRevenue, currentRkapNettoTarget]);
-  const annualRkapNettoPercentage = useMemo(() => (totalRevenue / RKAP_NETTO_TARGET) * 100, [totalRevenue]);
+  const rkapNettoPercentageCurrent = useMemo(() => (totalNetto / currentRkapNettoTarget) * 100, [totalNetto, currentRkapNettoTarget]);
+  const annualRkapNettoPercentage = useMemo(() => (totalNetto / RKAP_NETTO_TARGET) * 100, [totalNetto]);
   
   // Aggregate production totals
   const totalPlta = useMemo(() => filteredProductionData.reduce((sum, item) => sum + item.plta, 0), [filteredProductionData]);
@@ -287,11 +288,20 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-[minmax(140px,auto)]">
       {/* Metrics Row */}
       <div className="col-span-1 row-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
-        <div>
-          <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2 block">Total Pendapatan</span>
-          <div className="flex flex-col gap-1">
-            <span className="text-2xl font-bold text-white tracking-tight">{formatRupiah(totalRevenue)}</span>
-            <span className="text-emerald-400 text-xs font-medium">+ ({selectedYear})</span>
+        <div className="space-y-4">
+          <div>
+            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2 block">Total Pendapatan Bruto</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-2xl font-bold text-white tracking-tight">{formatRupiah(totalRevenue)}</span>
+              <span className="text-emerald-400 text-xs font-medium">+ ({selectedYear})</span>
+            </div>
+          </div>
+          <div>
+            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2 block">Total Pendapatan Netto</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xl font-bold text-white tracking-tight">{formatRupiah(totalNetto)}</span>
+              <span className="text-cyan-400 text-xs font-medium">+ ({selectedYear})</span>
+            </div>
           </div>
         </div>
         
