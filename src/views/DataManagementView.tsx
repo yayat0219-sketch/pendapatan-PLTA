@@ -1137,10 +1137,10 @@ export function DataManagementView({
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative z-10 inline-block align-bottom bg-slate-900 border border-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:align-middle sm:max-w-2xl w-full"
+                className="relative z-10 inline-flex flex-col align-bottom bg-slate-900 border border-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:align-middle sm:max-w-2xl w-full max-h-[90vh]"
               >
-                <form onSubmit={handleSubmit}>
-                  <div className="bg-slate-900 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                  <div className="bg-slate-900 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto flex-1">
                     <div className="sm:flex sm:items-start">
                       <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                         <h3 className="text-lg leading-6 font-bold text-white mb-5" id="modal-title">
@@ -1625,13 +1625,13 @@ export function DataManagementView({
                     </div>
                   </div>
                   {saveError && (
-                    <div className="mx-4 sm:mx-6 mt-3 p-3 bg-rose-950/50 border border-rose-800/50 rounded-lg text-rose-300 text-xs flex items-start gap-2">
+                    <div className="mx-4 sm:mx-6 mb-3 p-3 bg-rose-950/50 border border-rose-800/50 rounded-lg text-rose-300 text-xs flex items-start gap-2 shrink-0">
                       <span className="font-bold flex-shrink-0 text-rose-400">⚠️ Error:</span>
                       <span className="break-all">{saveError}</span>
                     </div>
                   )}
 
-                  <div className="bg-slate-800/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-slate-800 mt-4">
+                  <div className="bg-slate-800/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-slate-800 shrink-0">
                     <button
                       type="submit"
                       disabled={isSaving}
