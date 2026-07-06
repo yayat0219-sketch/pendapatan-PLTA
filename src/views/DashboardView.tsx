@@ -82,6 +82,9 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const totalPln = useMemo(() => filteredData.filter(d => d.category === 'PLN (Persero)').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
   const totalPs = useMemo(() => filteredData.filter(d => d.category !== 'PLN (Persero)').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
   const totalNetto = useMemo(() => filteredData.filter(d => d.category === 'PLN (Persero)' || d.category.includes('Non PLN (Swasta)')).reduce((sum, item) => sum + item.amount, 0), [filteredData]);
+  const totalNonPln = useMemo(() => filteredData.filter(d => d.category === 'Non PLN (Swasta) + Penduduk').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
+  const totalPsPenugasan = useMemo(() => filteredData.filter(d => d.category === 'PS Penugasan').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
+  const totalPsUsaha = useMemo(() => filteredData.filter(d => d.category === 'PS Usaha').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
 
   // Filtering Scale factor to dynamically calculate active targets (Quarter = 1/4, Month = 1/12, Semua = 1)
   const scaleFactor = useMemo(() => {
@@ -497,9 +500,25 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
             <span className="text-2xl font-bold text-white tracking-tight">
               {new Intl.NumberFormat('id-ID').format(totalPsKwh)} <span className="text-sm font-normal text-slate-400">kWh</span>
             </span>
-            <div className="mt-2 text-[11px] border-t border-slate-800/40 pt-1.5 flex justify-between items-center">
-              <span className="text-slate-400">Total Pendapatan:</span>
-              <span className="text-emerald-400 font-semibold">{formatRupiah(totalPs)}</span>
+            <div className="mt-2 text-[11px] border-t border-slate-800/40 pt-1.5 space-y-1">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-slate-400">Total Pendapatan PS:</span>
+                <span className="text-emerald-400 font-semibold">{formatRupiah(totalPs)}</span>
+              </div>
+              <div className="pl-2 border-l border-slate-800/80 space-y-1 text-[10px]">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Non PLN + Penduduk:</span>
+                  <span className="text-slate-300 font-medium">{formatRupiah(totalNonPln)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">PS Penugasan:</span>
+                  <span className="text-slate-300 font-medium">{formatRupiah(totalPsPenugasan)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">PS Usaha:</span>
+                  <span className="text-slate-300 font-medium">{formatRupiah(totalPsUsaha)}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
