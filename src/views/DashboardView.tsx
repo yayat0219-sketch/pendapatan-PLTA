@@ -169,9 +169,14 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         return acc;
       }, {} as Record<string, number>);
 
+      // Get target for this month
+      const targetObj = getRkapTarget(month);
+      const target = targetObj ? targetObj.bruto : 0;
+
       return {
         month,
         total,
+        target,
         ...byCategory,
       };
     });
@@ -182,9 +187,15 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
     return MONTHS.map(month => {
       const monthRecords = yearProductionData.filter(p => p.month === month);
       const pln = monthRecords.reduce((sum, item) => sum + (item.pln || 0), 0);
+
+      // Get target for this month
+      const targetObj = getRkapTarget(month);
+      const target = targetObj ? targetObj.plnProduction : 0;
+
       return {
         month,
         pln,
+        target,
       };
     });
   }, [yearProductionData]);
@@ -201,11 +212,16 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
         .reduce((sum, item) => sum + item.kwhValue, 0);
       const total = swasta + penduduk;
       
+      // Get target for this month
+      const targetObj = getRkapTarget(month);
+      const target = targetObj ? targetObj.psProduction : 0;
+
       return {
         month,
         swasta,
         penduduk,
         total,
+        target,
       };
     });
   }, [yearPsData]);
@@ -650,9 +666,15 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
       <div className="col-span-1 md:col-span-2 row-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 relative flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-white font-bold">Tren Pendapatan Bulanan</h3>
-          <div className="flex gap-2">
-            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-            <div className="w-3 h-3 rounded-full bg-slate-700"></div>
+          <div className="flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1.5 text-indigo-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span>
+              Realisasi
+            </span>
+            <span className="flex items-center gap-1.5 text-pink-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span>
+              Target RKAP
+            </span>
           </div>
         </div>
         <div className="flex-1 w-full relative min-h-[200px]">
@@ -683,6 +705,15 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }}
               />
+              <Line 
+                type="monotone" 
+                dataKey="target" 
+                name="Target RKAP" 
+                stroke="#ec4899" 
+                strokeWidth={2}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#ec4899' }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -695,9 +726,15 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
             <h3 className="text-white font-bold">Tren Produksi PT PLN</h3>
             <p className="text-slate-500 text-[11px] mt-0.5">Tren volume penyaluran/produksi bulanan dalam kWh</p>
           </div>
-          <div className="flex gap-2">
-            <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-            <div className="w-3 h-3 rounded-full bg-slate-700"></div>
+          <div className="flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+              Realisasi
+            </span>
+            <span className="flex items-center gap-1.5 text-pink-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span>
+              Target RKAP
+            </span>
           </div>
         </div>
         <div className="flex-1 w-full relative min-h-[200px]">
@@ -729,6 +766,16 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
               />
+              <Line 
+                type="monotone" 
+                dataKey="target" 
+                name="Target RKAP PLN" 
+                unit="kWh"
+                stroke="#ec4899" 
+                strokeWidth={2}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#ec4899' }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -741,7 +788,7 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
             <h3 className="text-white font-bold">Tren Penyaluran Non-PLN</h3>
             <p className="text-slate-500 text-[11px] mt-0.5">Tren penyaluran Swasta (Industri) & Penduduk</p>
           </div>
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-3 text-xs flex-wrap justify-end">
             <span className="flex items-center gap-1.5 text-cyan-400">
               <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
               Swasta
@@ -749,6 +796,14 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
             <span className="flex items-center gap-1.5 text-amber-400">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
               Penduduk
+            </span>
+            <span className="flex items-center gap-1.5 text-violet-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-400 inline-block"></span>
+              Total Realisasi
+            </span>
+            <span className="flex items-center gap-1.5 text-pink-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span>
+              Target RKAP
             </span>
           </div>
         </div>
@@ -801,6 +856,16 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 strokeDasharray="4 4"
                 dot={{ r: 3, strokeWidth: 1, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 5, strokeWidth: 0, fill: '#a78bfa' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="target" 
+                name="Target RKAP Non-PLN" 
+                unit="kWh"
+                stroke="#ec4899" 
+                strokeWidth={2}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#ec4899' }}
               />
             </LineChart>
           </ResponsiveContainer>
