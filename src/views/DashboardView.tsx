@@ -107,6 +107,16 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const totalPlta = useMemo(() => filteredProductionData.reduce((sum, item) => sum + item.plta, 0), [filteredProductionData]);
   const totalMiniHydro = useMemo(() => filteredProductionData.reduce((sum, item) => sum + item.miniHydro, 0), [filteredProductionData]);
   const totalProduction = totalPlta + totalMiniHydro;
+
+  const pltaProductionRkapPercentage = useMemo(() => {
+    const target = activeTargets.pltaProduction;
+    return target > 0 ? (totalPlta / target) * 100 : 0;
+  }, [totalPlta, activeTargets.pltaProduction]);
+
+  const miniHydroProductionRkapPercentage = useMemo(() => {
+    const target = activeTargets.miniHydroProduction;
+    return target > 0 ? (totalMiniHydro / target) * 100 : 0;
+  }, [totalMiniHydro, activeTargets.miniHydroProduction]);
   const totalPlnKwh = useMemo(() => filteredProductionData.reduce((sum, item) => sum + (item.pln || 0), 0), [filteredProductionData]);
   const totalPsKwh = useMemo(() => {
     return filteredProductionData.reduce((sum, item) => {
@@ -377,36 +387,88 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
             <span className="text-2xl font-bold text-white tracking-tight">
               {new Intl.NumberFormat('id-ID').format(totalProduction)} <span className="text-sm font-normal text-slate-400">kWh</span>
             </span>
-            <div className="flex justify-between items-center mt-1 text-[11px] gap-2">
-               <span className="text-slate-400 text-ellipsis overflow-hidden whitespace-nowrap">PLTA: <span className="text-indigo-400 font-medium">{new Intl.NumberFormat('id-ID').format(totalPlta)}</span></span>
-               <span className="text-slate-400 text-ellipsis overflow-hidden whitespace-nowrap">Mini: <span className="text-cyan-400 font-medium">{new Intl.NumberFormat('id-ID').format(totalMiniHydro)}</span></span>
+            <div className="flex justify-between items-center mt-2 text-[10px] gap-2 border-t border-slate-800/40 pt-2 text-slate-400">
+               <span className="truncate">PLTA: <span className="text-indigo-400 font-bold">{new Intl.NumberFormat('id-ID').format(totalPlta)} kWh</span></span>
+               <span className="truncate">Mini: <span className="text-cyan-400 font-bold">{new Intl.NumberFormat('id-ID').format(totalMiniHydro)} kWh</span></span>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">
-              {selectedMonth === 'Semua' ? 'Pencapaian RKAP Tahunan' : `Pencapaian RKAP ${selectedMonth}`}
-            </span>
-            <span className="text-indigo-400 font-semibold text-sm">
-              {productionRkapPercentageCurrent.toFixed(2)}%
-            </span>
+        <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-3">
+          {/* RKAP Total Produksi */}
+          <div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">
+                {selectedMonth === 'Semua' ? 'RKAP Produksi Tahunan' : `RKAP Produksi ${selectedMonth}`}
+              </span>
+              <span className="text-indigo-400 font-semibold text-sm">
+                {productionRkapPercentageCurrent.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(productionRkapPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+              <span>Target RKAP:</span>
+              <span className="font-medium text-slate-300">
+                {new Intl.NumberFormat('id-ID').format(Math.round(currentProductionTarget))} kWh
+              </span>
+            </div>
           </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div 
-              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${Math.min(productionRkapPercentageCurrent, 100)}%` }}
-            />
+
+          {/* RKAP PLTA */}
+          <div className="pt-2.5 border-t border-slate-800/40">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">
+                {selectedMonth === 'Semua' ? 'RKAP PLTA Tahunan' : `RKAP PLTA ${selectedMonth}`}
+              </span>
+              <span className="text-indigo-400 font-semibold text-sm">
+                {pltaProductionRkapPercentage.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-indigo-400 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(pltaProductionRkapPercentage, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+              <span>Target PLTA:</span>
+              <span className="font-medium text-slate-300">
+                {new Intl.NumberFormat('id-ID').format(Math.round(activeTargets.pltaProduction))} kWh
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between items-center text-[10px] text-slate-500">
-            <span>Target RKAP:</span>
-            <span className="font-medium text-slate-300">
-              {new Intl.NumberFormat('id-ID').format(Math.round(currentProductionTarget))} kWh
-            </span>
+
+          {/* RKAP Mini Hydro */}
+          <div className="pt-2.5 border-t border-slate-800/40">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">
+                {selectedMonth === 'Semua' ? 'RKAP Mini Hydro Tahunan' : `RKAP Mini Hydro ${selectedMonth}`}
+              </span>
+              <span className="text-cyan-400 font-semibold text-sm">
+                {miniHydroProductionRkapPercentage.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(miniHydroProductionRkapPercentage, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+              <span>Target Mini Hydro:</span>
+              <span className="font-medium text-slate-300">
+                {new Intl.NumberFormat('id-ID').format(Math.round(activeTargets.miniHydroProduction))} kWh
+              </span>
+            </div>
           </div>
+
           {selectedMonth !== 'Semua' && (
-            <div className="text-[10px] text-slate-500 flex justify-between items-center pt-0.5">
+            <div className="text-[10px] text-slate-500 flex justify-between items-center pt-2 border-t border-slate-800/40">
               <span>Kontribusi ke Tahunan:</span>
               <span className="text-slate-400 font-medium">{annualProductionRkapPercentage.toFixed(2)}%</span>
             </div>

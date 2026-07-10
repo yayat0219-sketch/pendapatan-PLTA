@@ -6,6 +6,8 @@ export interface RkapTargetSet {
   production: number;
   plnProduction: number;
   psProduction: number;
+  pltaProduction: number;
+  miniHydroProduction: number;
 }
 
 export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
@@ -17,6 +19,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 71676831,
     plnProduction: 24901125,
     psProduction: 46775606,
+    pltaProduction: 70784031,
+    miniHydroProduction: 892800,
   },
   'Februari': {
     bruto: 43286142622,
@@ -26,6 +30,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 65639968,
     plnProduction: 23628302,
     psProduction: 42011566,
+    pltaProduction: 64833568,
+    miniHydroProduction: 806400,
   },
   'Maret': {
     bruto: 50442815905,
@@ -35,6 +41,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 80018022,
     plnProduction: 33489315,
     psProduction: 46528706,
+    pltaProduction: 79125222,
+    miniHydroProduction: 892800,
   },
   'April': {
     bruto: 48664516310,
@@ -44,6 +52,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 77174932,
     plnProduction: 32254272,
     psProduction: 44920660,
+    pltaProduction: 76310932,
+    miniHydroProduction: 864000,
   },
   'Mei': {
     bruto: 50212100580,
@@ -53,6 +63,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 79231515,
     plnProduction: 32472009,
     psProduction: 46758706,
+    pltaProduction: 78338715,
+    miniHydroProduction: 892800,
   },
   'Juni': {
     bruto: 55031863882,
@@ -62,6 +74,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 93389097,
     plnProduction: 47887438,
     psProduction: 45501660,
+    pltaProduction: 92525097,
+    miniHydroProduction: 864000,
   },
   'Juli': {
     bruto: 56168931157,
@@ -71,6 +85,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 94376000,
     plnProduction: 47155293,
     psProduction: 47220706,
+    pltaProduction: 93483200,
+    miniHydroProduction: 892800,
   },
   'Agustus': {
     bruto: 57675933404,
@@ -80,6 +96,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 98175979,
     plnProduction: 50789272,
     psProduction: 47386706,
+    pltaProduction: 97283179,
+    miniHydroProduction: 892800,
   },
   'September': {
     bruto: 52016888266,
@@ -89,6 +107,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 84944711,
     plnProduction: 39136051,
     psProduction: 45808660,
+    pltaProduction: 84080711,
+    miniHydroProduction: 864000,
   },
   'Oktober': {
     bruto: 54663406023,
@@ -98,6 +118,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 90314478,
     plnProduction: 43017768,
     psProduction: 47296706,
+    pltaProduction: 89421678,
+    miniHydroProduction: 892800,
   },
   'November': {
     bruto: 46649243469,
@@ -107,6 +129,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 71283120,
     plnProduction: 25969456,
     psProduction: 45313660,
+    pltaProduction: 70419120,
+    miniHydroProduction: 864000,
   },
   'Desember': {
     bruto: 49944131516,
@@ -116,6 +140,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 78220508,
     plnProduction: 31336602,
     psProduction: 46883706,
+    pltaProduction: 77327708,
+    miniHydroProduction: 892800,
   },
   'Q1': {
     bruto: 141127486038,
@@ -125,6 +151,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 217433811,
     plnProduction: 81018832,
     psProduction: 135315779,
+    pltaProduction: 214841811,
+    miniHydroProduction: 2592000,
   },
   'Q2': {
     bruto: 153908480771,
@@ -134,6 +162,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 249795544,
     plnProduction: 112714618,
     psProduction: 137081026,
+    pltaProduction: 247174744,
+    miniHydroProduction: 2620800,
   },
   'Q3': {
     bruto: 165861752827,
@@ -143,6 +173,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 277496690,
     plnProduction: 127080617,
     psProduction: 140416072,
+    pltaProduction: 274847000,
+    miniHydroProduction: 2649600,
   },
   'Q4': {
     bruto: 151276781007,
@@ -152,6 +184,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 239818103,
     plnProduction: 100324031,
     psProduction: 139494072,
+    pltaProduction: 237168503,
+    miniHydroProduction: 2649600,
   },
   'Semua': {
     bruto: 612174500644,
@@ -161,6 +195,8 @@ export const RKAP_2026_TARGETS: Record<string, RkapTargetSet> = {
     production: 984544147,
     plnProduction: 431937998,
     psProduction: 552606149,
+    pltaProduction: 974032147,
+    miniHydroProduction: 10512000,
   }
 };
 
