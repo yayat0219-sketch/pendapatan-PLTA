@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord, MONTHS } from '../types';
 import { formatRupiah } from '../lib/utils';
+import { getRkapTarget } from '../data/rkapTargets';
 import { TrendingUp, Wallet, ArrowUpRight, BarChart2, PieChart as PieChartIcon, Zap } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -86,24 +87,21 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const totalPsPenugasan = useMemo(() => filteredData.filter(d => d.category === 'PS Penugasan').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
   const totalPsUsaha = useMemo(() => filteredData.filter(d => d.category === 'PS Usaha').reduce((sum, item) => sum + item.amount, 0), [filteredData]);
 
-  // Filtering Scale factor to dynamically calculate active targets (Quarter = 1/4, Month = 1/12, Semua = 1)
-  const scaleFactor = useMemo(() => {
-    if (selectedMonth === 'Semua') return 1;
-    if (['Q1', 'Q2', 'Q3', 'Q4'].includes(selectedMonth)) return 0.25;
-    return 1 / 12;
-  }, [selectedMonth]);
+  // Get RKAP Targets based on selected month (or "Semua")
+  const activeTargets = useMemo(() => getRkapTarget(selectedMonth), [selectedMonth]);
+  const annualTargets = useMemo(() => getRkapTarget('Semua'), []);
 
-  // RKAP Target Comparison (RKAP Target: Rp 612.174.500.594)
-  const RKAP_TARGET = 612174500594;
-  const currentRkapTarget = useMemo(() => RKAP_TARGET * scaleFactor, [scaleFactor]);
+  // RKAP Target Comparison (RKAP Target: Rp 612.174.500.644)
+  const RKAP_TARGET = annualTargets.bruto;
+  const currentRkapTarget = activeTargets.bruto;
   const rkapPercentageCurrent = useMemo(() => (totalRevenue / currentRkapTarget) * 100, [totalRevenue, currentRkapTarget]);
-  const annualRkapPercentage = useMemo(() => (totalRevenue / RKAP_TARGET) * 100, [totalRevenue]);
+  const annualRkapPercentage = useMemo(() => (totalRevenue / RKAP_TARGET) * 100, [totalRevenue, RKAP_TARGET]);
 
   // RKAP Netto Target Comparison (RKAP Netto Target: Rp 576.942.988.460)
-  const RKAP_NETTO_TARGET = 576942988460;
-  const currentRkapNettoTarget = useMemo(() => RKAP_NETTO_TARGET * scaleFactor, [scaleFactor]);
+  const RKAP_NETTO_TARGET = annualTargets.netto;
+  const currentRkapNettoTarget = activeTargets.netto;
   const rkapNettoPercentageCurrent = useMemo(() => (totalNetto / currentRkapNettoTarget) * 100, [totalNetto, currentRkapNettoTarget]);
-  const annualRkapNettoPercentage = useMemo(() => (totalNetto / RKAP_NETTO_TARGET) * 100, [totalNetto]);
+  const annualRkapNettoPercentage = useMemo(() => (totalNetto / RKAP_NETTO_TARGET) * 100, [totalNetto, RKAP_NETTO_TARGET]);
   
   // Aggregate production totals
   const totalPlta = useMemo(() => filteredProductionData.reduce((sum, item) => sum + item.plta, 0), [filteredProductionData]);
@@ -120,34 +118,34 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   }, [filteredProductionData]);
 
   // RKAP Production Target comparison (RKAP Production Target: 984.544.147 kWh)
-  const RKAP_PRODUCTION_TARGET = 984544147;
-  const currentProductionTarget = useMemo(() => RKAP_PRODUCTION_TARGET * scaleFactor, [scaleFactor]);
+  const RKAP_PRODUCTION_TARGET = annualTargets.production;
+  const currentProductionTarget = activeTargets.production;
   const productionRkapPercentageCurrent = useMemo(() => (totalProduction / currentProductionTarget) * 100, [totalProduction, currentProductionTarget]);
-  const annualProductionRkapPercentage = useMemo(() => (totalProduction / RKAP_PRODUCTION_TARGET) * 100, [totalProduction]);
+  const annualProductionRkapPercentage = useMemo(() => (totalProduction / RKAP_PRODUCTION_TARGET) * 100, [totalProduction, RKAP_PRODUCTION_TARGET]);
 
   // RKAP PT PLN Production Target comparison (RKAP Target: 431.937.998 kWh)
-  const RKAP_PLN_PRODUCTION_TARGET = 431937998;
-  const currentPlnProductionTarget = useMemo(() => RKAP_PLN_PRODUCTION_TARGET * scaleFactor, [scaleFactor]);
+  const RKAP_PLN_PRODUCTION_TARGET = annualTargets.plnProduction;
+  const currentPlnProductionTarget = activeTargets.plnProduction;
   const plnProductionRkapPercentageCurrent = useMemo(() => (totalPlnKwh / currentPlnProductionTarget) * 100, [totalPlnKwh, currentPlnProductionTarget]);
-  const annualPlnProductionRkapPercentage = useMemo(() => (totalPlnKwh / RKAP_PLN_PRODUCTION_TARGET) * 100, [totalPlnKwh]);
+  const annualPlnProductionRkapPercentage = useMemo(() => (totalPlnKwh / RKAP_PLN_PRODUCTION_TARGET) * 100, [totalPlnKwh, RKAP_PLN_PRODUCTION_TARGET]);
 
   // RKAP PT PLN Revenue Target (RKAP Target: Rp 161.976.749.128)
-  const RKAP_PLN_REVENUE_TARGET = 161976749128;
-  const currentPlnRevenueTarget = useMemo(() => RKAP_PLN_REVENUE_TARGET * scaleFactor, [scaleFactor]);
+  const RKAP_PLN_REVENUE_TARGET = annualTargets.plnRevenue;
+  const currentPlnRevenueTarget = activeTargets.plnRevenue;
   const plnRevenueRkapPercentageCurrent = useMemo(() => (totalPln / currentPlnRevenueTarget) * 100, [totalPln, currentPlnRevenueTarget]);
-  const annualPlnRevenueRkapPercentage = useMemo(() => (totalPln / RKAP_PLN_REVENUE_TARGET) * 100, [totalPln]);
+  const annualPlnRevenueRkapPercentage = useMemo(() => (totalPln / RKAP_PLN_REVENUE_TARGET) * 100, [totalPln, RKAP_PLN_REVENUE_TARGET]);
 
   // RKAP PS & Terjual Production Target comparison (RKAP Target: 552.606.149 kWh)
-  const RKAP_PS_PRODUCTION_TARGET = 552606149;
-  const currentPsProductionTarget = useMemo(() => RKAP_PS_PRODUCTION_TARGET * scaleFactor, [scaleFactor]);
+  const RKAP_PS_PRODUCTION_TARGET = annualTargets.psProduction;
+  const currentPsProductionTarget = activeTargets.psProduction;
   const psProductionRkapPercentageCurrent = useMemo(() => (totalPsKwh / currentPsProductionTarget) * 100, [totalPsKwh, currentPsProductionTarget]);
-  const annualPsProductionRkapPercentage = useMemo(() => (totalPsKwh / RKAP_PS_PRODUCTION_TARGET) * 100, [totalPsKwh]);
+  const annualPsProductionRkapPercentage = useMemo(() => (totalPsKwh / RKAP_PS_PRODUCTION_TARGET) * 100, [totalPsKwh, RKAP_PS_PRODUCTION_TARGET]);
 
-  // RKAP PS & Terjual Revenue Target (RKAP Target: Rp 450.197.751.466)
-  const RKAP_PS_REVENUE_TARGET = 450197751466;
-  const currentPsRevenueTarget = useMemo(() => RKAP_PS_REVENUE_TARGET * scaleFactor, [scaleFactor]);
+  // RKAP PS & Terjual Revenue Target (RKAP Target: Rp 450.197.751.516)
+  const RKAP_PS_REVENUE_TARGET = annualTargets.psRevenue;
+  const currentPsRevenueTarget = activeTargets.psRevenue;
   const psRevenueRkapPercentageCurrent = useMemo(() => (totalPs / currentPsRevenueTarget) * 100, [totalPs, currentPsRevenueTarget]);
-  const annualPsRevenueRkapPercentage = useMemo(() => (totalPs / RKAP_PS_REVENUE_TARGET) * 100, [totalPs]);
+  const annualPsRevenueRkapPercentage = useMemo(() => (totalPs / RKAP_PS_REVENUE_TARGET) * 100, [totalPs, RKAP_PS_REVENUE_TARGET]);
 
   // Aggregate data for Line and Bar charts (Monthly totals)
   const monthlyData = useMemo(() => {
@@ -272,11 +270,11 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
               style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%22%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
             >
               <option value="Semua">Semua Waktu</option>
-              <optgroup label="Pilihan Kuartal" className="text-indigo-400 bg-slate-900 font-semibold">
-                <option value="Q1" className="text-slate-200">Quartal 1 (Jan - Mar)</option>
-                <option value="Q2" className="text-slate-200">Quartal 2 (Apr - Jun)</option>
-                <option value="Q3" className="text-slate-200">Quartal 3 (Jul - Sep)</option>
-                <option value="Q4" className="text-slate-200">Quartal 4 (Okt - Des)</option>
+              <optgroup label="Pilihan RKT" className="text-indigo-400 bg-slate-900 font-semibold">
+                <option value="Q1" className="text-slate-200">RKT 1 (Jan - Mar)</option>
+                <option value="Q2" className="text-slate-200">RKT 2 (Apr - Jun)</option>
+                <option value="Q3" className="text-slate-200">RKT 3 (Jul - Sep)</option>
+                <option value="Q4" className="text-slate-200">RKT 4 (Okt - Des)</option>
               </optgroup>
               <optgroup label="Pilihan Bulan" className="text-indigo-400 bg-slate-900 font-semibold">
                 {MONTHS.map(m => (
