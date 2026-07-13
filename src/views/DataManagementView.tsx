@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Filter, Download } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Filter, Download, Lock, Unlock } from 'lucide-react';
 import { RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord, MONTHS, DEFAULT_CATEGORIES } from '../types';
 import { formatRupiah, generateId } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -47,6 +47,64 @@ export function DataManagementView({
 }: DataManagementViewProps) {
   const [activeTab, setActiveTab] = useState<'revenue' | 'production' | 'ps_terjual' | 'transmission'>('revenue');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Password Protection States
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(() => {
+    return sessionStorage.getItem('isAuthorized_usaha26PLTA') === 'true';
+  });
+  const [passwordModal, setPasswordModal] = useState<{
+    isOpen: boolean;
+    passwordInput: string;
+    error: string;
+    pendingAction: (() => void) | null;
+  }>({
+    isOpen: false,
+    passwordInput: '',
+    error: '',
+    pendingAction: null
+  });
+
+  const checkAuthorization = (action: () => void) => {
+    if (isAuthorized) {
+      action();
+    } else {
+      setPasswordModal({
+        isOpen: true,
+        passwordInput: '',
+        error: '',
+        pendingAction: action
+      });
+    }
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordModal.passwordInput === 'usaha26PLTA') {
+      setIsAuthorized(true);
+      sessionStorage.setItem('isAuthorized_usaha26PLTA', 'true');
+      const action = passwordModal.pendingAction;
+      setPasswordModal({
+        isOpen: false,
+        passwordInput: '',
+        error: '',
+        pendingAction: null
+      });
+      if (action) {
+        action();
+      }
+    } else {
+      setPasswordModal(prev => ({
+        ...prev,
+        error: 'Password salah! Silakan coba lagi.'
+      }));
+    }
+  };
+
+  const handleLock = () => {
+    setIsAuthorized(false);
+    sessionStorage.removeItem('isAuthorized_usaha26PLTA');
+  };
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingData, setEditingData] = useState<RevenueRecord | ProductionRecord | PSTerjualRecord | TransmissionRecord | null>(null);
   const [expandedTxRow, setExpandedTxRow] = useState<string | null>(null);
@@ -693,16 +751,35 @@ export function DataManagementView({
         </div>
         
         <div className="flex w-full sm:w-auto gap-2">
+          {isAuthorized ? (
+            <button
+              onClick={handleLock}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-slate-750 text-sm font-medium rounded-lg shadow-sm text-emerald-400 bg-slate-800/80 hover:bg-slate-700 focus:outline-none transition-colors cursor-pointer"
+              title="Klik untuk mengunci fitur tambah, edit, & hapus"
+            >
+              <Unlock className="mr-2 -ml-1 h-5 w-5 text-emerald-400" />
+              Unlocked
+            </button>
+          ) : (
+            <button
+              onClick={() => checkAuthorization(() => {})}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-slate-800 text-sm font-medium rounded-lg shadow-sm text-slate-400 bg-slate-800/40 hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Fitur tambah, edit, & hapus terkunci. Klik untuk membuka."
+            >
+              <Lock className="mr-2 -ml-1 h-5 w-5 text-slate-500" />
+              Locked
+            </button>
+          )}
           <button
             onClick={handleDownloadPDF}
-            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-slate-700 text-sm font-medium rounded-lg shadow-sm text-slate-300 bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-slate-700 text-sm font-medium rounded-lg shadow-sm text-slate-300 bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer"
           >
             <Download className="mr-2 -ml-1 h-5 w-5" />
             Unduh PDF
           </button>
           <button
-            onClick={openAddModal}
-            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+            onClick={() => checkAuthorization(openAddModal)}
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer"
           >
             <Plus className="mr-2 -ml-1 h-5 w-5" />
             Tambah Data
@@ -754,14 +831,14 @@ export function DataManagementView({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
                         <button 
-                          onClick={() => openEditModal(row)}
-                          className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1"
+                          onClick={() => checkAuthorization(() => openEditModal(row))}
+                          className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 cursor-pointer"
                         >
                           Edit
                         </button>
                         <button 
-                          onClick={() => handleDelete(row.id)}
-                          className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1"
+                          onClick={() => checkAuthorization(() => handleDelete(row.id))}
+                          className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1 cursor-pointer"
                         >
                           Hapus
                         </button>
@@ -818,14 +895,14 @@ export function DataManagementView({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
                         <button 
-                          onClick={() => openEditModal(row)}
-                          className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1"
+                          onClick={() => checkAuthorization(() => openEditModal(row))}
+                          className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 cursor-pointer"
                         >
                           Edit
                         </button>
                         <button 
-                          onClick={() => handleDelete(row.id)}
-                          className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1"
+                          onClick={() => checkAuthorization(() => handleDelete(row.id))}
+                          className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1 cursor-pointer"
                         >
                           Hapus
                         </button>
@@ -912,14 +989,14 @@ export function DataManagementView({
                                     </td>
                                     <td className="py-3 text-center space-x-1 whitespace-nowrap">
                                       <button 
-                                        onClick={() => openEditModal(row)}
-                                        className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-0.5 rounded hover:bg-indigo-500/5 font-semibold text-xs"
+                                        onClick={() => checkAuthorization(() => openEditModal(row))}
+                                        className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-0.5 rounded hover:bg-indigo-500/5 font-semibold text-xs cursor-pointer"
                                       >
                                         Edit
                                       </button>
                                       <button 
-                                        onClick={() => handleDelete(row.id)}
-                                        className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-0.5 rounded hover:bg-rose-500/5 font-semibold text-xs"
+                                        onClick={() => checkAuthorization(() => handleDelete(row.id))}
+                                        className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-0.5 rounded hover:bg-rose-500/5 font-semibold text-xs cursor-pointer"
                                       >
                                         Hapus
                                       </button>
@@ -1016,21 +1093,21 @@ export function DataManagementView({
                             <td className="px-6 py-4 text-center whitespace-nowrap">
                               <button
                                 onClick={() => setExpandedTxRow(isExpanded ? null : row.id)}
-                                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition-colors border border-slate-700 font-medium"
+                                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition-colors border border-slate-700 font-medium cursor-pointer"
                               >
                                 {isExpanded ? 'Tutup Rincian' : 'Lihat 7 Penghantar'}
                               </button>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
                               <button 
-                                onClick={() => openEditModal(row)}
-                                className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1"
+                                onClick={() => checkAuthorization(() => openEditModal(row))}
+                                className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 cursor-pointer"
                               >
                                 Edit
                               </button>
                               <button 
-                                onClick={() => handleDelete(row.id)}
-                                className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1"
+                                onClick={() => checkAuthorization(() => handleDelete(row.id))}
+                                className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1 cursor-pointer"
                               >
                                 Hapus
                               </button>
@@ -1719,6 +1796,83 @@ export function DataManagementView({
                     Batal
                   </button>
                 </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Proteksi Password */}
+      <AnimatePresence>
+        {passwordModal.isOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity z-0" 
+                aria-hidden="true" 
+                onClick={() => setPasswordModal(prev => ({ ...prev, isOpen: false }))}
+              />
+
+              {/* Center modal trick */}
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative z-10 inline-block align-middle bg-slate-900 border border-slate-700 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:max-w-md w-full"
+              >
+                <form onSubmit={handlePasswordSubmit}>
+                  <div className="bg-slate-900 px-6 pt-6 pb-4 sm:pb-6">
+                    <div className="sm:flex sm:items-start">
+                      <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-500/10 sm:mx-0 sm:h-10 sm:w-10">
+                        <Lock className="h-5 w-5 text-indigo-400" />
+                      </div>
+                      <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <h3 className="text-lg leading-6 font-bold text-white mb-2">
+                          Proteksi Password Admin
+                        </h3>
+                        <p className="text-sm text-slate-400 mb-4">
+                          Fitur tambah data, edit, dan hapus diproteksi. Masukkan kata sandi untuk membuka akses.
+                        </p>
+                        <div className="mt-2">
+                          <input
+                            type="password"
+                            required
+                            autoFocus
+                            placeholder="Masukkan password..."
+                            value={passwordModal.passwordInput}
+                            onChange={(e) => setPasswordModal(prev => ({ ...prev, passwordInput: e.target.value, error: '' }))}
+                            className="block w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-colors"
+                          />
+                        </div>
+                        {passwordModal.error && (
+                          <p className="mt-2 text-xs text-rose-400 font-medium">
+                            ⚠️ {passwordModal.error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/40 px-6 py-4 sm:flex sm:flex-row-reverse border-t border-slate-800 gap-3">
+                    <button
+                      type="submit"
+                      className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-500 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                    >
+                      Verifikasi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPasswordModal(prev => ({ ...prev, isOpen: false }))}
+                      className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-700 shadow-sm px-4 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none sm:mt-0 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </form>
               </motion.div>
             </div>
           </div>
