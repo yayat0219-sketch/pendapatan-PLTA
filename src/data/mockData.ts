@@ -293,34 +293,20 @@ const psRawData = [
 
 export const MOCK_PS_TERJUAL_DATA: PSTerjualRecord[] = [];
 psRawData.forEach((item, itemIdx) => {
-  // Add Jan-Mei
+  // Add Jan-Mei (only non-zero actual data)
   Object.entries(item.months).forEach(([month, val]) => {
-    MOCK_PS_TERJUAL_DATA.push({
-      id: `ps_${itemIdx}_${month.toLowerCase()}`,
-      month,
-      year: 2026,
-      category: item.category,
-      customerName: item.customerName,
-      kwhValue: val.kwh,
-      rupiahValue: val.rp,
-      dateAdded: new Date('2026-05-31').toISOString()
-    });
-  });
-
-  // Add Juni-Desember
-  const remainingMonthsList = ['Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-  remainingMonthsList.forEach((month, rIdx) => {
-    const monthNum = 6 + rIdx;
-    MOCK_PS_TERJUAL_DATA.push({
-      id: `ps_${itemIdx}_${month.toLowerCase()}`,
-      month,
-      year: 2026,
-      category: item.category,
-      customerName: item.customerName,
-      kwhValue: 0,
-      rupiahValue: 0,
-      dateAdded: new Date(`2026-${String(monthNum).padStart(2, '0')}-30`).toISOString()
-    });
+    if (val.kwh > 0 || val.rp > 0) {
+      MOCK_PS_TERJUAL_DATA.push({
+        id: `ps_${itemIdx}_${month.toLowerCase()}`,
+        month,
+        year: 2026,
+        category: item.category,
+        customerName: item.customerName,
+        kwhValue: val.kwh,
+        rupiahValue: val.rp,
+        dateAdded: new Date('2026-05-31').toISOString()
+      });
+    }
   });
 });
 

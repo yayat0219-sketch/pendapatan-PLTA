@@ -192,42 +192,112 @@ export function DataManagementView({
 
   const [transmissionDisplayUnit, setTransmissionDisplayUnit] = useState<'kwh' | 'rupiah'>('kwh');
 
-  const filteredData = data.filter(item => 
-    item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.year.toString().includes(searchTerm)
-  ).sort((a, b) => {
-    if (a.year !== b.year) return b.year - a.year;
-    return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
-  });
+  const filteredData = React.useMemo(() => {
+    const existing = data || [];
+    const map = new Map<string, RevenueRecord>();
+    existing.forEach(item => {
+      map.set(`${item.year}-${item.month}-${item.category}`, item);
+    });
 
-  const filteredProductionData = productionData.filter(item => 
-    item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.year.toString().includes(searchTerm)
-  ).sort((a, b) => {
-    if (a.year !== b.year) return b.year - a.year;
-    return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
-  });
+    const categoriesToUse = categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+    MONTHS.forEach(m => {
+      categoriesToUse.forEach(cat => {
+        const key = `2026-${m}-${cat}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            id: `rev_2026_${m}_${cat.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`,
+            month: m,
+            year: 2026,
+            category: cat,
+            amount: 0,
+            notes: '-',
+            dateAdded: new Date().toISOString()
+          });
+        }
+      });
+    });
 
-  const filteredPsData = (psData || []).filter(item => 
-    item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.year.toString().includes(searchTerm)
-  ).sort((a, b) => {
-    // 1. Group by category
-    if (a.category !== b.category) return a.category.localeCompare(b.category);
+    return Array.from(map.values()).filter(item => 
+      item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.year.toString().includes(searchTerm)
+    ).sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+    });
+  }, [data, categories, searchTerm]);
+
+  const filteredProductionData = React.useMemo(() => {
+    const existing = productionData || [];
+    const map = new Map<string, ProductionRecord>();
+    existing.forEach(item => {
+      map.set(`${item.year}-${item.month}`, item);
+    });
+
+    MONTHS.forEach(m => {
+      const key = `2026-${m}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: `prod_2026_${m}`,
+          month: m,
+          year: 2026,
+          plta: 0,
+          miniHydro: 0,
+          pln: 0,
+          ps: 0,
+          dateAdded: new Date().toISOString()
+        });
+      }
+    });
+
+    return Array.from(map.values()).filter(item => 
+      item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.year.toString().includes(searchTerm)
+    ).sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+    });
+  }, [productionData, searchTerm]);
+
+  const filteredPsData = React.useMemo(() => {
+    const existing = psData || [];
+    const map = new Map<string, PSTerjualRecord>();
     
-    // 2. Group by customer name
-    const customerCompare = a.customerName.localeCompare(b.customerName);
-    if (customerCompare !== 0) return customerCompare;
-    
-    // 3. Sort by year (descending)
-    if (a.year !== b.year) return b.year - a.year;
-    
-    // 4. Sort chronologically by month (ascending)
-    return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
-  });
+    // Deduplicate existing records, prioritizing non-zero records and ignoring zero-value items
+    existing.forEach(item => {
+      const isZero = (item.kwhValue || 0) === 0 && (item.rupiahValue || 0) === 0;
+      if (isZero) return;
+
+      const normCustomer = item.customerName.trim().toUpperCase();
+      const normMonth = item.month.trim().toLowerCase();
+      const key = `${item.year}-${normMonth}-${normCustomer}`;
+
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, item);
+      } else {
+        const prevVal = (prev.kwhValue || 0) + (prev.rupiahValue || 0);
+        const currVal = (item.kwhValue || 0) + (item.rupiahValue || 0);
+        if (currVal > prevVal) {
+          map.set(key, item);
+        }
+      }
+    });
+
+    return Array.from(map.values()).filter(item => 
+      item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.year.toString().includes(searchTerm)
+    ).sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      const mIndexA = MONTHS.indexOf(a.month);
+      const mIndexB = MONTHS.indexOf(b.month);
+      if (mIndexA !== mIndexB) return mIndexA - mIndexB;
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      return a.customerName.trim().localeCompare(b.customerName.trim());
+    });
+  }, [psData, searchTerm]);
 
   // Programmatic hierarchical grouping of PS Terjual & Penugasan data
   const groupedPsData = React.useMemo(() => {
@@ -295,13 +365,40 @@ export function DataManagementView({
     });
   }, [filteredPsData]);
 
-  const filteredTransmissionData = (transmissionData || []).filter(item => 
-    item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.year.toString().includes(searchTerm)
-  ).sort((a, b) => {
-    if (a.year !== b.year) return b.year - a.year;
-    return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
-  });
+  const filteredTransmissionData = React.useMemo(() => {
+    const existing = transmissionData || [];
+    const map = new Map<string, TransmissionRecord>();
+    existing.forEach(item => {
+      map.set(`${item.year}-${item.month}`, item);
+    });
+
+    MONTHS.forEach(m => {
+      const key = `2026-${m}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: `tx_2026_${m}`,
+          month: m,
+          year: 2026,
+          curugKirim: 0, curugTerima: 0,
+          pdlrg1Kirim: 0, pdlrg1Terima: 0,
+          pdlrg2Kirim: 0, pdlrg2Terima: 0,
+          tatajabar1Kirim: 0, tatajabar1Terima: 0,
+          tatajabar2Kirim: 0, tatajabar2Terima: 0,
+          lineIndustriKirim: 0, lineIndustriTerima: 0,
+          pupukKujangKirim: 0, pupukKujangTerima: 0,
+          dateAdded: new Date().toISOString()
+        });
+      }
+    });
+
+    return Array.from(map.values()).filter(item => 
+      item.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.year.toString().includes(searchTerm)
+    ).sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+    });
+  }, [transmissionData, searchTerm]);
 
   const openAddModal = () => {
     setEditingData(null);
@@ -590,13 +687,28 @@ export function DataManagementView({
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
-    
-    doc.setFontSize(16);
+    const targetYear = 2026;
+    const formatNum = (num: number) => new Intl.NumberFormat('id-ID').format(num || 0);
+
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+
     if (activeTab === 'revenue') {
-      doc.text('Laporan Data Pendapatan', 14, 22);
-      
+      doc.text(`Laporan Data Pendapatan (${targetYear})`, 14, 20);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 26);
+
       const head = [['Periode', 'Kategori Sumber', 'Pendapatan (Rp)', 'Catatan']];
-      const body = filteredData.map(row => [
+      
+      const revenueSorted = [...filteredData].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+      });
+
+      const totalAmount = revenueSorted.reduce((sum, row) => sum + (row.amount || 0), 0);
+
+      const body = revenueSorted.map(row => [
         `${row.month} ${row.year}`,
         row.category,
         formatRupiah(row.amount),
@@ -604,58 +716,134 @@ export function DataManagementView({
       ]);
 
       autoTable(doc, {
-        startY: 30,
+        startY: 32,
         head: head,
         body: body,
+        foot: [[
+          { content: 'TOTAL PENDAPATAN', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+          { content: formatRupiah(totalAmount), styles: { fontStyle: 'bold' } },
+          { content: '', styles: {} }
+        ]],
+        footStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' }
       });
-      doc.save('data_pendapatan.pdf');
+
+      doc.save(`Laporan_Pendapatan_${targetYear}.pdf`);
       
     } else if (activeTab === 'production') {
-      doc.text('Laporan Data Produksi', 14, 22);
-      
+      doc.text(`Laporan Data Produksi Energi (${targetYear})`, 14, 20);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 26);
+
       const head = [['Periode', 'Produksi PLTA (kWh)', 'Produksi Mini Hydro (kWh)', 'Produksi PLN (kWh)', 'Produksi PS (kWh)']];
-      const body = filteredProductionData.map(row => [
-        `${row.month} ${row.year}`,
-        new Intl.NumberFormat('id-ID').format(row.plta),
-        new Intl.NumberFormat('id-ID').format(row.miniHydro),
-        new Intl.NumberFormat('id-ID').format(row.pln || 0),
-        new Intl.NumberFormat('id-ID').format(
-          row.ps !== undefined && row.ps !== null 
-            ? row.ps 
-            : (row.plta + row.miniHydro) - (row.pln || 0)
-        ),
-      ]);
+      
+      let sumPlta = 0;
+      let sumMini = 0;
+      let sumPln = 0;
+      let sumPs = 0;
+
+      const productionSorted = [...filteredProductionData].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+      });
+
+      const body = productionSorted.map(row => {
+        const rPlta = row.plta || 0;
+        const rMini = row.miniHydro || 0;
+        const rPln = row.pln || 0;
+        const rPs = row.ps !== undefined && row.ps !== null ? row.ps : Math.max(0, (rPlta + rMini) - rPln);
+
+        sumPlta += rPlta;
+        sumMini += rMini;
+        sumPln += rPln;
+        sumPs += rPs;
+
+        return [
+          `${row.month} ${row.year}`,
+          formatNum(rPlta),
+          formatNum(rMini),
+          formatNum(rPln),
+          formatNum(rPs)
+        ];
+      });
 
       autoTable(doc, {
-        startY: 30,
+        startY: 32,
         head: head,
         body: body,
+        foot: [[
+          { content: 'TOTAL', styles: { fontStyle: 'bold', halign: 'right' } },
+          { content: formatNum(sumPlta), styles: { fontStyle: 'bold' } },
+          { content: formatNum(sumMini), styles: { fontStyle: 'bold' } },
+          { content: formatNum(sumPln), styles: { fontStyle: 'bold' } },
+          { content: formatNum(sumPs), styles: { fontStyle: 'bold' } }
+        ]],
+        footStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' }
       });
-      doc.save('data_produksi.pdf');
+
+      doc.save(`Laporan_Produksi_${targetYear}.pdf`);
       
     } else if (activeTab === 'ps_terjual') {
-      doc.text('Laporan Data PS Terjual & Penugasan', 14, 22);
-      
+      doc.text(`Laporan Data PS Terjual & Penugasan (${targetYear})`, 14, 20);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 26);
+
       const head = [['Periode', 'Kategori', 'Nama Pelanggan / Perusahaan', 'Penyaluran (kWh)', 'Pendapatan (Rp)']];
-      const body = filteredPsData.map(row => [
-        `${row.month} ${row.year}`,
-        row.category,
-        row.customerName,
-        new Intl.NumberFormat('id-ID').format(row.kwhValue),
-        formatRupiah(row.rupiahValue),
-      ]);
+      
+      let totalKwh = 0;
+      let totalRupiah = 0;
+
+      const psSorted = [...filteredPsData].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        const mA = MONTHS.indexOf(a.month);
+        const mB = MONTHS.indexOf(b.month);
+        if (mA !== mB) return mA - mB;
+        if (a.category !== b.category) return a.category.localeCompare(b.category);
+        return a.customerName.trim().localeCompare(b.customerName.trim());
+      });
+
+      const body = psSorted.map(row => {
+        totalKwh += row.kwhValue || 0;
+        totalRupiah += row.rupiahValue || 0;
+        return [
+          `${row.month} ${row.year}`,
+          row.category,
+          row.customerName,
+          formatNum(row.kwhValue),
+          formatRupiah(row.rupiahValue)
+        ];
+      });
 
       autoTable(doc, {
-        startY: 30,
+        startY: 32,
         head: head,
         body: body,
+        foot: [[
+          { content: 'TOTAL', colSpan: 3, styles: { fontStyle: 'bold', halign: 'right' } },
+          { content: formatNum(totalKwh), styles: { fontStyle: 'bold' } },
+          { content: formatRupiah(totalRupiah), styles: { fontStyle: 'bold' } }
+        ]],
+        footStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' }
       });
-      doc.save('data_ps_terjual.pdf');
+
+      doc.save(`Laporan_PS_Terjual_${targetYear}.pdf`);
+
     } else {
       const docLandscape = new jsPDF({ orientation: 'landscape' });
       docLandscape.setFontSize(14);
-      docLandscape.text('Laporan Detail Transmisi Penghantar (PHT) PLN - 2026', 14, 18);
-      
+      docLandscape.setFont('helvetica', 'bold');
+      docLandscape.text(`Laporan Detail Transmisi Penghantar (PHT) PLN - Tahun ${targetYear}`, 14, 16);
+      docLandscape.setFontSize(9);
+      docLandscape.setFont('helvetica', 'normal');
+      docLandscape.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 21);
+
       const head = [[
         'Periode',
         'Curug Kirim', 'Curug Terima',
@@ -667,26 +855,69 @@ export function DataManagementView({
         'Pupuk Kujang Kirim', 'Pupuk Kujang Terima',
         'Total Kirim', 'Total Terima'
       ]];
-      const body = filteredTransmissionData.map(row => [
-        `${row.month} ${row.year}`,
-        new Intl.NumberFormat('id-ID').format(row.curugKirim), new Intl.NumberFormat('id-ID').format(row.curugTerima),
-        new Intl.NumberFormat('id-ID').format(row.pdlrg1Kirim), new Intl.NumberFormat('id-ID').format(row.pdlrg1Terima),
-        new Intl.NumberFormat('id-ID').format(row.pdlrg2Kirim), new Intl.NumberFormat('id-ID').format(row.pdlrg2Terima),
-        new Intl.NumberFormat('id-ID').format(row.tatajabar1Kirim), new Intl.NumberFormat('id-ID').format(row.tatajabar1Terima),
-        new Intl.NumberFormat('id-ID').format(row.tatajabar2Kirim), new Intl.NumberFormat('id-ID').format(row.tatajabar2Terima),
-        new Intl.NumberFormat('id-ID').format(row.lineIndustriKirim), new Intl.NumberFormat('id-ID').format(row.lineIndustriTerima),
-        new Intl.NumberFormat('id-ID').format(row.pupukKujangKirim), new Intl.NumberFormat('id-ID').format(row.pupukKujangTerima),
-        new Intl.NumberFormat('id-ID').format(row.curugKirim + row.pdlrg1Kirim + row.pdlrg2Kirim + row.tatajabar1Kirim + row.tatajabar2Kirim + row.lineIndustriKirim + row.pupukKujangKirim),
-        new Intl.NumberFormat('id-ID').format(row.curugTerima + row.pdlrg1Terima + row.pdlrg2Terima + row.tatajabar1Terima + row.tatajabar2Terima + row.lineIndustriTerima + row.pupukKujangTerima)
-      ]);
+
+      let sCurugKirim = 0, sCurugTerima = 0;
+      let sPdlrg1Kirim = 0, sPdlrg1Terima = 0;
+      let sPdlrg2Kirim = 0, sPdlrg2Terima = 0;
+      let sTata1Kirim = 0, sTata1Terima = 0;
+      let sTata2Kirim = 0, sTata2Terima = 0;
+      let sLineKirim = 0, sLineTerima = 0;
+      let sPupukKirim = 0, sPupukTerima = 0;
+      let sTotKirim = 0, sTotTerima = 0;
+
+      const transmissionSorted = [...filteredTransmissionData].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month);
+      });
+
+      const body = transmissionSorted.map(row => {
+        const totKirim = row.curugKirim + row.pdlrg1Kirim + row.pdlrg2Kirim + row.tatajabar1Kirim + row.tatajabar2Kirim + row.lineIndustriKirim + row.pupukKujangKirim;
+        const totTerima = row.curugTerima + row.pdlrg1Terima + row.pdlrg2Terima + row.tatajabar1Terima + row.tatajabar2Terima + row.lineIndustriTerima + row.pupukKujangTerima;
+
+        sCurugKirim += row.curugKirim; sCurugTerima += row.curugTerima;
+        sPdlrg1Kirim += row.pdlrg1Kirim; sPdlrg1Terima += row.pdlrg1Terima;
+        sPdlrg2Kirim += row.pdlrg2Kirim; sPdlrg2Terima += row.pdlrg2Terima;
+        sTata1Kirim += row.tatajabar1Kirim; sTata1Terima += row.tatajabar1Terima;
+        sTata2Kirim += row.tatajabar2Kirim; sTata2Terima += row.tatajabar2Terima;
+        sLineKirim += row.lineIndustriKirim; sLineTerima += row.lineIndustriTerima;
+        sPupukKirim += row.pupukKujangKirim; sPupukTerima += row.pupukKujangTerima;
+        sTotKirim += totKirim; sTotTerima += totTerima;
+
+        return [
+          `${row.month} ${row.year}`,
+          formatNum(row.curugKirim), formatNum(row.curugTerima),
+          formatNum(row.pdlrg1Kirim), formatNum(row.pdlrg1Terima),
+          formatNum(row.pdlrg2Kirim), formatNum(row.pdlrg2Terima),
+          formatNum(row.tatajabar1Kirim), formatNum(row.tatajabar1Terima),
+          formatNum(row.tatajabar2Kirim), formatNum(row.tatajabar2Terima),
+          formatNum(row.lineIndustriKirim), formatNum(row.lineIndustriTerima),
+          formatNum(row.pupukKujangKirim), formatNum(row.pupukKujangTerima),
+          formatNum(totKirim), formatNum(totTerima)
+        ];
+      });
 
       autoTable(docLandscape, {
-        startY: 24,
+        startY: 25,
         head: head,
-        styles: { fontSize: 7.5 },
         body: body,
+        foot: [[
+          'TOTAL',
+          formatNum(sCurugKirim), formatNum(sCurugTerima),
+          formatNum(sPdlrg1Kirim), formatNum(sPdlrg1Terima),
+          formatNum(sPdlrg2Kirim), formatNum(sPdlrg2Terima),
+          formatNum(sTata1Kirim), formatNum(sTata1Terima),
+          formatNum(sTata2Kirim), formatNum(sTata2Terima),
+          formatNum(sLineKirim), formatNum(sLineTerima),
+          formatNum(sPupukKirim), formatNum(sPupukTerima),
+          formatNum(sTotKirim), formatNum(sTotTerima)
+        ]],
+        styles: { fontSize: 7, cellPadding: 1.5 },
+        footStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' }
       });
-      docLandscape.save('data_transmisi_pht.pdf');
+
+      docLandscape.save(`Laporan_Transmisi_PHT_${targetYear}.pdf`);
     }
   };
 

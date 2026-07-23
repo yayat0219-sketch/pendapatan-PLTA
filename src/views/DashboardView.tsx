@@ -57,7 +57,22 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   }, [productionData, selectedYear]);
 
   const yearPsData = useMemo(() => {
-    return psData.filter(d => d.year === selectedYear);
+    const raw = psData.filter(d => d.year === selectedYear);
+    const map = new Map<string, PSTerjualRecord>();
+    raw.forEach(item => {
+      const key = `${item.year}-${item.month.trim().toLowerCase()}-${item.customerName.trim().toUpperCase()}`;
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, item);
+      } else {
+        const prevVal = (prev.kwhValue || 0) + (prev.rupiahValue || 0);
+        const currVal = (item.kwhValue || 0) + (item.rupiahValue || 0);
+        if (currVal > prevVal) {
+          map.set(key, item);
+        }
+      }
+    });
+    return Array.from(map.values());
   }, [psData, selectedYear]);
 
   const filteredData = useMemo(() => {

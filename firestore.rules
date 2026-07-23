@@ -8,7 +8,7 @@ service cloud.firestore {
 
     // Helper functions for validation
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 256 && id.matches('^[a-zA-Z0-9_\\-.% ]+$');
     }
 
     // 2. Collections and rules

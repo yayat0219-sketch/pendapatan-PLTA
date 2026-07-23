@@ -58,28 +58,36 @@ const autoBackfillRecords = async (
     }
   }
 
-  // 3. PS Terjual backfill/update
-  const uniqueCustomers = Array.from(new Set(MOCK_PS_TERJUAL_DATA.map(c => JSON.stringify({ name: c.customerName, cat: c.category }))));
-  for (const m of months) {
-    const monthNum = months.indexOf(m) + 1;
-    for (const custStr of uniqueCustomers) {
-      const cust = JSON.parse(custStr) as { name: string; cat: any };
-      const existing = currentPs.find(r => r.month === m && r.year === 2026 && r.customerName === cust.name);
-      
-      if (!existing) {
-        const id = `ps_2026_${m.toLowerCase()}_${encodeURIComponent(cust.name)}`;
-        promises.push(saveDocument('ps_terjual', {
-          id,
-          month: m,
-          year: 2026,
-          category: cust.cat,
-          customerName: cust.name,
-          kwhValue: 0,
-          rupiahValue: 0,
-          dateAdded: new Date(`2026-${String(monthNum).padStart(2, '0')}-15`).toISOString()
-        }));
-      }
+  // 3. PS Terjual seed & cleanup (Delete all zero-value and duplicate records)
+  const psGroups = new Map<string, PSTerjualRecord[]>();
+  currentPs.forEach(r => {
+    const normName = r.customerName.trim().toUpperCase();
+    const key = `${r.year}-${r.month.trim().toLowerCase()}-${normName}`;
+    if (!psGroups.has(key)) {
+      psGroups.set(key, []);
     }
+    psGroups.get(key)!.push(r);
+  });
+
+  // Delete all records where kwhValue === 0 && rupiahValue === 0 OR duplicate records
+  psGroups.forEach((records) => {
+    // Find the record with actual non-zero value if any
+    const recordWithValues = records.find(r => (r.kwhValue || 0) > 0 || (r.rupiahValue || 0) > 0);
+    
+    records.forEach(r => {
+      const isZero = (r.kwhValue || 0) === 0 && (r.rupiahValue || 0) === 0;
+      // If it's a zero-value record, OR it's a duplicate of a record with values, delete it from Firestore
+      if (isZero || (recordWithValues && r.id !== recordWithValues.id)) {
+        promises.push(removeDocument('ps_terjual', r.id));
+      }
+    });
+  });
+
+  // Seed initial MOCK_PS_TERJUAL_DATA if currentPs is empty
+  if (currentPs.length === 0) {
+    MOCK_PS_TERJUAL_DATA.forEach(r => {
+      promises.push(saveDocument('ps_terjual', r));
+    });
   }
 
   // 4. Transmission backfill/update
