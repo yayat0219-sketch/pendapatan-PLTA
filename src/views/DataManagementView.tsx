@@ -1364,6 +1364,9 @@ export function DataManagementView({
             const deltaProdGwh = totalProyProdGwh - totalTargetProdGwh;
             const pctProd = totalTargetProdGwh > 0 ? (totalProyProdGwh / totalTargetProdGwh) * 100 : 0;
 
+            const totalActualProdGwh = productionData.reduce((sum, r) => sum + (r.plta + r.miniHydro), 0) / 1000000;
+            const totalActualBruto = data.reduce((sum, r) => sum + r.amount, 0);
+
             const totalTargetBruto = annualTarget?.bruto || 0;
             const totalProyBruto = annualTarget?.proyeksi || 0;
             const deltaBruto = totalProyBruto - totalTargetBruto;
@@ -1446,8 +1449,9 @@ export function DataManagementView({
                         <tr>
                           <th scope="col" className="px-5 py-3.5">Bulan</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-indigo-400">Target RKAP (GWh)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right text-sky-400">Realisasi (GWh)</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-amber-400">Proyeksi 2026 (GWh)</th>
-                          <th scope="col" className="px-5 py-3.5 text-right">Selisih (GWh)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right">Selisih Proy (GWh)</th>
                           <th scope="col" className="px-5 py-3.5 text-right">% Prognosa</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Status</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Aksi</th>
@@ -1458,6 +1462,7 @@ export function DataManagementView({
                           const targetObj = getRkapTarget(m);
                           const rkapGwh = (targetObj?.production || 0) / 1000000;
                           const proyGwh = (targetObj?.proyeksiProduction || 0) / 1000000;
+                          const actualGwh = productionData.filter(r => r.month === m).reduce((sum, r) => sum + (r.plta + r.miniHydro), 0) / 1000000;
                           const delta = proyGwh - rkapGwh;
                           const pct = rkapGwh > 0 ? (proyGwh / rkapGwh) * 100 : 0;
                           const isAbove = delta >= 0;
@@ -1466,6 +1471,7 @@ export function DataManagementView({
                             <tr key={m} className="hover:bg-slate-800/30 transition-colors">
                               <td className="px-5 py-3.5 font-sans font-semibold text-white">{m} 2026</td>
                               <td className="px-5 py-3.5 text-right text-indigo-300 font-semibold">{rkapGwh.toFixed(2)} GWh</td>
+                              <td className="px-5 py-3.5 text-right text-sky-300 font-semibold">{actualGwh.toFixed(2)} GWh</td>
                               <td className="px-5 py-3.5 text-right text-amber-300 font-bold">{proyGwh.toFixed(2)} GWh</td>
                               <td className={`px-5 py-3.5 text-right font-bold ${isAbove ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {isAbove ? '+' : ''}{delta.toFixed(2)} GWh
@@ -1508,6 +1514,7 @@ export function DataManagementView({
                         <tr>
                           <td className="px-5 py-3.5 font-sans">TOTAL TAHUNAN</td>
                           <td className="px-5 py-3.5 text-right text-indigo-300">{totalTargetProdGwh.toFixed(2)} GWh</td>
+                          <td className="px-5 py-3.5 text-right text-sky-300">{totalActualProdGwh.toFixed(2)} GWh</td>
                           <td className="px-5 py-3.5 text-right text-amber-300">{totalProyProdGwh.toFixed(2)} GWh</td>
                           <td className={`px-5 py-3.5 text-right ${deltaProdGwh >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {deltaProdGwh >= 0 ? '+' : ''}{deltaProdGwh.toFixed(2)} GWh
@@ -1536,8 +1543,9 @@ export function DataManagementView({
                         <tr>
                           <th scope="col" className="px-5 py-3.5">Bulan</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-indigo-400">Target RKAP Bruto (Rp)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right text-sky-400">Realisasi Bruto (Rp)</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-emerald-400">Proyeksi Bruto (Rp)</th>
-                          <th scope="col" className="px-5 py-3.5 text-right">Selisih (Rp)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right">Selisih Proy (Rp)</th>
                           <th scope="col" className="px-5 py-3.5 text-right">% Prognosa</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Status</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Aksi</th>
@@ -1548,6 +1556,7 @@ export function DataManagementView({
                           const targetObj = getRkapTarget(m);
                           const rkapRp = targetObj?.bruto || 0;
                           const proyRp = targetObj?.proyeksi || 0;
+                          const actualRp = data.filter(r => r.month === m).reduce((sum, r) => sum + r.amount, 0);
                           const delta = proyRp - rkapRp;
                           const pct = rkapRp > 0 ? (proyRp / rkapRp) * 100 : 0;
                           const isAbove = delta >= 0;
@@ -1556,6 +1565,7 @@ export function DataManagementView({
                             <tr key={m} className="hover:bg-slate-800/30 transition-colors">
                               <td className="px-5 py-3.5 font-sans font-semibold text-white">{m} 2026</td>
                               <td className="px-5 py-3.5 text-right text-indigo-300 font-semibold">{formatRupiah(rkapRp)}</td>
+                              <td className="px-5 py-3.5 text-right text-sky-300 font-semibold">{formatRupiah(actualRp)}</td>
                               <td className="px-5 py-3.5 text-right text-emerald-300 font-bold">{formatRupiah(proyRp)}</td>
                               <td className={`px-5 py-3.5 text-right font-bold ${isAbove ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {isAbove ? '+' : ''}{formatRupiah(delta)}
@@ -1598,6 +1608,7 @@ export function DataManagementView({
                         <tr>
                           <td className="px-5 py-3.5 font-sans">TOTAL TAHUNAN</td>
                           <td className="px-5 py-3.5 text-right text-indigo-300">{formatRupiah(totalTargetBruto)}</td>
+                          <td className="px-5 py-3.5 text-right text-sky-300">{formatRupiah(totalActualBruto)}</td>
                           <td className="px-5 py-3.5 text-right text-emerald-300">{formatRupiah(totalProyBruto)}</td>
                           <td className={`px-5 py-3.5 text-right ${deltaBruto >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {deltaBruto >= 0 ? '+' : ''}{formatRupiah(deltaBruto)}
