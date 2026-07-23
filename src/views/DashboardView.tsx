@@ -112,6 +112,39 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const rkapPercentageCurrent = useMemo(() => (totalRevenue / currentRkapTarget) * 100, [totalRevenue, currentRkapTarget]);
   const annualRkapPercentage = useMemo(() => (totalRevenue / RKAP_TARGET) * 100, [totalRevenue, RKAP_TARGET]);
 
+  // Prognosa Target Comparison (Realisasi Jan-Jun + Proyeksi Jul-Des)
+  const realisasiJanJun = useMemo(() => {
+    const janJunMonths = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'];
+    return yearData
+      .filter(d => janJunMonths.includes(d.month))
+      .reduce((sum, item) => sum + item.amount, 0);
+  }, [yearData]);
+
+  const proyeksiJulDes = useMemo(() => {
+    const julDesMonths = ['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    return julDesMonths.reduce((sum, month) => {
+      const targetObj = getRkapTarget(month);
+      return sum + (targetObj ? targetObj.proyeksi : 0);
+    }, 0);
+  }, []);
+
+  const prognosaTahunan = useMemo(() => realisasiJanJun + proyeksiJulDes, [realisasiJanJun, proyeksiJulDes]);
+
+  const currentPrognosaVal = useMemo(() => {
+    if (selectedMonth === 'Semua') {
+      return prognosaTahunan;
+    }
+    const targetObj = getRkapTarget(selectedMonth);
+    return (targetObj && targetObj.proyeksi > 0) ? targetObj.proyeksi : totalRevenue;
+  }, [selectedMonth, prognosaTahunan, totalRevenue]);
+
+  const prognosaPercentageCurrent = useMemo(() => {
+    if (selectedMonth === 'Semua') {
+      return RKAP_TARGET > 0 ? (prognosaTahunan / RKAP_TARGET) * 100 : 0;
+    }
+    return currentRkapTarget > 0 ? (currentPrognosaVal / currentRkapTarget) * 100 : 0;
+  }, [selectedMonth, prognosaTahunan, RKAP_TARGET, currentPrognosaVal, currentRkapTarget]);
+
   // RKAP Netto Target Comparison (RKAP Netto Target: Rp 576.942.988.460)
   const RKAP_NETTO_TARGET = annualTargets.netto;
   const currentRkapNettoTarget = activeTargets.netto;
@@ -173,6 +206,8 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
   const annualPsRevenueRkapPercentage = useMemo(() => (totalPs / RKAP_PS_REVENUE_TARGET) * 100, [totalPs, RKAP_PS_REVENUE_TARGET]);
 
   // Aggregate data for Line and Bar charts (Monthly totals)
+  const PROJECTION_MONTHS = ['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
   const monthlyData = useMemo(() => {
     return MONTHS.map(month => {
       const monthData = yearData.filter(d => d.month === month);
@@ -187,11 +222,14 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
       // Get target for this month
       const targetObj = getRkapTarget(month);
       const target = targetObj ? targetObj.bruto : 0;
+      const isProjectionMonth = PROJECTION_MONTHS.includes(month);
+      const proyeksi = (isProjectionMonth && targetObj && targetObj.proyeksi > 0) ? targetObj.proyeksi : null;
 
       return {
         month,
         total,
         target,
+        proyeksi,
         ...byCategory,
       };
     });
@@ -257,10 +295,12 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const validPayload = payload.filter((entry: any) => entry.value !== null && entry.value !== undefined);
+      if (!validPayload.length) return null;
       return (
         <div className={`${isLight ? 'bg-white border-slate-200 text-slate-700' : 'bg-slate-900 border-slate-800 text-slate-300'} border shadow-xl rounded-lg p-3 text-sm`}>
           <p className={`${isLight ? 'text-slate-950 font-bold' : 'text-white font-semibold'} mb-1.5`}>{label}</p>
-          {payload.map((entry: any, index: number) => {
+          {validPayload.map((entry: any, index: number) => {
             const isKwh = entry.unit === 'kWh' || entry.name.toLowerCase().includes('produksi') || entry.name.toLowerCase().includes('kwh');
             const valueFormatted = isKwh 
               ? `${new Intl.NumberFormat('id-ID').format(entry.value)} kWh` 
@@ -368,6 +408,30 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
               <span>Target RKAP Bruto:</span>
               <span className="font-medium text-slate-300">
                 {formatRupiah(currentRkapTarget)}
+              </span>
+            </div>
+          </div>
+
+          {/* Prognosa */}
+          <div className="pt-2.5 border-t border-slate-800/40">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">
+                {selectedMonth === 'Semua' ? 'Prognosa Tahunan' : `Prognosa ${selectedMonth}`}
+              </span>
+              <span className="text-orange-400 font-semibold text-sm">
+                {prognosaPercentageCurrent.toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-orange-500 h-1.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min(prognosaPercentageCurrent, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+              <span>{selectedMonth === 'Semua' ? 'Nilai Prognosa Tahunan:' : 'Nilai Prognosa:'}</span>
+              <span className="font-medium text-slate-300">
+                {formatRupiah(currentPrognosaVal)}
               </span>
             </div>
           </div>
@@ -690,6 +754,10 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
               <span className="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span>
               Target RKAP
             </span>
+            <span className="flex items-center gap-1.5 text-orange-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block"></span>
+              Proyeksi
+            </span>
           </div>
         </div>
         <div className="flex-1 w-full relative min-h-[200px]">
@@ -728,6 +796,15 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                 strokeWidth={2}
                 dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#ec4899' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="proyeksi" 
+                name="Proyeksi" 
+                stroke="#f97316" 
+                strokeWidth={2.5}
+                dot={{ r: 4, strokeWidth: 2, fill: isLight ? '#ffffff' : '#1e293b' }}
+                activeDot={{ r: 6, strokeWidth: 0, fill: '#f97316' }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -973,6 +1050,12 @@ export function DashboardView({ data, productionData = [], psData = [], transmis
                   radius={index === categories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                 />
               ))}
+              <Bar 
+                dataKey="proyeksi" 
+                name="Proyeksi" 
+                fill="#f97316" 
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

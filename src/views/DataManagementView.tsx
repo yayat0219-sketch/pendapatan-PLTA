@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Filter, Download, Lock, Unlock } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Filter, Download, Lock, Unlock, Zap, Target, TrendingUp, BarChart2 } from 'lucide-react';
 import { RevenueRecord, ProductionRecord, PSTerjualRecord, TransmissionRecord, MONTHS, DEFAULT_CATEGORIES } from '../types';
 import { formatRupiah, generateId } from '../lib/utils';
+import { getRkapTarget, updateRkapTarget, deleteRkapTarget, resetRkapTargetsToDefault } from '../data/rkapTargets';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -45,7 +46,7 @@ export function DataManagementView({
   onDeleteTransmissionData,
   categories 
 }: DataManagementViewProps) {
-  const [activeTab, setActiveTab] = useState<'revenue' | 'production' | 'ps_terjual' | 'transmission'>('revenue');
+  const [activeTab, setActiveTab] = useState<'revenue' | 'production' | 'proyeksi' | 'ps_terjual' | 'transmission'>('revenue');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Password Protection States
@@ -123,6 +124,92 @@ export function DataManagementView({
   // Success Toast States
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Target & Proyeksi Edit & Delete States
+  const [, setRkapTargetVersion] = useState(0);
+
+  React.useEffect(() => {
+    const handleTargetsUpdated = () => {
+      setRkapTargetVersion(v => v + 1);
+    };
+    window.addEventListener('rkap-targets-updated', handleTargetsUpdated);
+    return () => {
+      window.removeEventListener('rkap-targets-updated', handleTargetsUpdated);
+    };
+  }, []);
+
+  const [proyeksiEditModal, setProyeksiEditModal] = useState<{
+    isOpen: boolean;
+    month: string;
+    targetProductionGwh: string;
+    proyeksiProductionGwh: string;
+    targetBrutoRp: string;
+    proyeksiBrutoRp: string;
+  }>({
+    isOpen: false,
+    month: '',
+    targetProductionGwh: '',
+    proyeksiProductionGwh: '',
+    targetBrutoRp: '',
+    proyeksiBrutoRp: ''
+  });
+
+  const [proyeksiDeleteModal, setProyeksiDeleteModal] = useState<{
+    isOpen: boolean;
+    month: string;
+  }>({
+    isOpen: false,
+    month: ''
+  });
+
+  const handleOpenEditProyeksiModal = (selectedMonth: string) => {
+    const targetObj = getRkapTarget(selectedMonth);
+    setProyeksiEditModal({
+      isOpen: true,
+      month: selectedMonth,
+      targetProductionGwh: ((targetObj?.production || 0) / 1000000).toString(),
+      proyeksiProductionGwh: ((targetObj?.proyeksiProduction || 0) / 1000000).toString(),
+      targetBrutoRp: (targetObj?.bruto || 0).toString(),
+      proyeksiBrutoRp: (targetObj?.proyeksi || 0).toString()
+    });
+  };
+
+  const handleSaveProyeksi = (e: React.FormEvent) => {
+    e.preventDefault();
+    const prodGwh = parseFloat(proyeksiEditModal.targetProductionGwh) || 0;
+    const proyProdGwh = parseFloat(proyeksiEditModal.proyeksiProductionGwh) || 0;
+    const targetBruto = parseFloat(proyeksiEditModal.targetBrutoRp) || 0;
+    const proyBruto = parseFloat(proyeksiEditModal.proyeksiBrutoRp) || 0;
+
+    updateRkapTarget(proyeksiEditModal.month, {
+      production: Math.round(prodGwh * 1000000),
+      proyeksiProduction: Math.round(proyProdGwh * 1000000),
+      bruto: targetBruto,
+      proyeksi: proyBruto
+    });
+
+    setProyeksiEditModal(prev => ({ ...prev, isOpen: false }));
+    setSuccessMessage(`Target & Proyeksi ${proyeksiEditModal.month} 2026 berhasil diperbarui.`);
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 4000);
+  };
+
+  const handleOpenDeleteProyeksiModal = (selectedMonth: string) => {
+    setProyeksiDeleteModal({
+      isOpen: true,
+      month: selectedMonth
+    });
+  };
+
+  const handleConfirmDeleteProyeksi = () => {
+    if (proyeksiDeleteModal.month) {
+      deleteRkapTarget(proyeksiDeleteModal.month);
+      setProyeksiDeleteModal({ isOpen: false, month: '' });
+      setSuccessMessage(`Target & Proyeksi ${proyeksiDeleteModal.month} 2026 berhasil dihapus / dikosongkan.`);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 4000);
+    }
+  };
 
   // Revenue Form State
   const [category, setCategory] = useState(categories[0] || DEFAULT_CATEGORIES[0]);
@@ -737,10 +824,11 @@ export function DataManagementView({
       doc.setFont('helvetica', 'normal');
       doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 26);
 
-      const head = [['Periode', 'Produksi PLTA (kWh)', 'Produksi Mini Hydro (kWh)', 'Produksi PLN (kWh)', 'Produksi PS (kWh)']];
+      const head = [['Periode', 'PLTA (kWh)', 'Mini Hydro (kWh)', 'Realisasi Total (GWh)', 'PLN (kWh)', 'PS (kWh)']];
       
       let sumPlta = 0;
       let sumMini = 0;
+      let sumRealisasiGwh = 0;
       let sumPln = 0;
       let sumPs = 0;
 
@@ -754,9 +842,11 @@ export function DataManagementView({
         const rMini = row.miniHydro || 0;
         const rPln = row.pln || 0;
         const rPs = row.ps !== undefined && row.ps !== null ? row.ps : Math.max(0, (rPlta + rMini) - rPln);
+        const realGwh = (rPlta + rMini) / 1000000;
 
         sumPlta += rPlta;
         sumMini += rMini;
+        sumRealisasiGwh += realGwh;
         sumPln += rPln;
         sumPs += rPs;
 
@@ -764,6 +854,7 @@ export function DataManagementView({
           `${row.month} ${row.year}`,
           formatNum(rPlta),
           formatNum(rMini),
+          realGwh > 0 ? `${realGwh.toFixed(2)} GWh` : '-',
           formatNum(rPln),
           formatNum(rPs)
         ];
@@ -777,6 +868,7 @@ export function DataManagementView({
           { content: 'TOTAL', styles: { fontStyle: 'bold', halign: 'right' } },
           { content: formatNum(sumPlta), styles: { fontStyle: 'bold' } },
           { content: formatNum(sumMini), styles: { fontStyle: 'bold' } },
+          { content: `${sumRealisasiGwh.toFixed(2)} GWh`, styles: { fontStyle: 'bold' } },
           { content: formatNum(sumPln), styles: { fontStyle: 'bold' } },
           { content: formatNum(sumPs), styles: { fontStyle: 'bold' } }
         ]],
@@ -786,6 +878,101 @@ export function DataManagementView({
       });
 
       doc.save(`Laporan_Produksi_${targetYear}.pdf`);
+      
+    } else if (activeTab === 'proyeksi') {
+      doc.text(`Laporan Target RKAP & Proyeksi (${targetYear})`, 14, 20);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 26);
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`1. Target & Proyeksi Produksi Energi 2026 (GWh)`, 14, 34);
+
+      const headProd = [['Bulan', 'Target RKAP (GWh)', 'Proyeksi (GWh)', 'Selisih (GWh)', '% Prognosa']];
+      let totRkapProd = 0;
+      let totProyProd = 0;
+
+      const bodyProd = MONTHS.map(m => {
+        const targetObj = getRkapTarget(m);
+        const rkapGwh = (targetObj?.production || 0) / 1000000;
+        const proyGwh = (targetObj?.proyeksiProduction || 0) / 1000000;
+        const delta = proyGwh - rkapGwh;
+        const pct = rkapGwh > 0 ? (proyGwh / rkapGwh) * 100 : 0;
+
+        totRkapProd += rkapGwh;
+        totProyProd += proyGwh;
+
+        return [
+          m,
+          `${rkapGwh.toFixed(2)} GWh`,
+          `${proyGwh.toFixed(2)} GWh`,
+          `${delta >= 0 ? '+' : ''}${delta.toFixed(2)} GWh`,
+          `${pct.toFixed(2)}%`
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 38,
+        head: headProd,
+        body: bodyProd,
+        foot: [[
+          { content: 'TOTAL TAHUNAN', styles: { fontStyle: 'bold' } },
+          { content: `${totRkapProd.toFixed(2)} GWh`, styles: { fontStyle: 'bold' } },
+          { content: `${totProyProd.toFixed(2)} GWh`, styles: { fontStyle: 'bold' } },
+          { content: `${(totProyProd - totRkapProd) >= 0 ? '+' : ''}${(totProyProd - totRkapProd).toFixed(2)} GWh`, styles: { fontStyle: 'bold' } },
+          { content: `${totRkapProd > 0 ? ((totProyProd / totRkapProd) * 100).toFixed(2) : 0}%`, styles: { fontStyle: 'bold' } }
+        ]],
+        footStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' }
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 150;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`2. Target & Proyeksi Pendapatan Bruto 2026 (Rp)`, 14, finalY + 12);
+
+      const headRev = [['Bulan', 'Target RKAP Bruto (Rp)', 'Proyeksi Bruto (Rp)', 'Selisih (Rp)', '% Prognosa']];
+      let totRkapRev = 0;
+      let totProyRev = 0;
+
+      const bodyRev = MONTHS.map(m => {
+        const targetObj = getRkapTarget(m);
+        const rkapRp = targetObj?.bruto || 0;
+        const proyRp = targetObj?.proyeksi || 0;
+        const delta = proyRp - rkapRp;
+        const pct = rkapRp > 0 ? (proyRp / rkapRp) * 100 : 0;
+
+        totRkapRev += rkapRp;
+        totProyRev += proyRp;
+
+        return [
+          m,
+          formatRupiah(rkapRp),
+          formatRupiah(proyRp),
+          `${delta >= 0 ? '+' : ''}${formatRupiah(delta)}`,
+          `${pct.toFixed(2)}%`
+        ];
+      });
+
+      autoTable(doc, {
+        startY: finalY + 16,
+        head: headRev,
+        body: bodyRev,
+        foot: [[
+          { content: 'TOTAL TAHUNAN', styles: { fontStyle: 'bold' } },
+          { content: formatRupiah(totRkapRev), styles: { fontStyle: 'bold' } },
+          { content: formatRupiah(totProyRev), styles: { fontStyle: 'bold' } },
+          { content: `${(totProyRev - totRkapRev) >= 0 ? '+' : ''}${formatRupiah(totProyRev - totRkapRev)}`, styles: { fontStyle: 'bold' } },
+          { content: `${totRkapRev > 0 ? ((totProyRev / totRkapRev) * 100).toFixed(2) : 0}%`, styles: { fontStyle: 'bold' } }
+        ]],
+        footStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+        theme: 'striped',
+        headStyles: { fillColor: [217, 119, 6], textColor: [255, 255, 255], fontStyle: 'bold' }
+      });
+
+      doc.save(`Laporan_Target_dan_Proyeksi_${targetYear}.pdf`);
       
     } else if (activeTab === 'ps_terjual') {
       doc.text(`Laporan Data PS Terjual & Penugasan (${targetYear})`, 14, 20);
@@ -945,6 +1132,16 @@ export function DataManagementView({
           Data Produksi
         </button>
         <button
+          onClick={() => setActiveTab('proyeksi')}
+          className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'proyeksi' 
+              ? 'bg-amber-600 text-white shadow-sm' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          Target & Proyeksi
+        </button>
+        <button
           onClick={() => setActiveTab('ps_terjual')}
           className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             activeTab === 'ps_terjual' 
@@ -1096,6 +1293,7 @@ export function DataManagementView({
                   <th scope="col" className="px-6 py-4">Periode</th>
                   <th scope="col" className="px-6 py-4 text-right">Produksi PLTA</th>
                   <th scope="col" className="px-6 py-4 text-right">Produksi Mini Hydro</th>
+                  <th scope="col" className="px-6 py-4 text-right">Realisasi Total</th>
                   <th scope="col" className="px-6 py-4 text-right">Produksi PLN</th>
                   <th scope="col" className="px-6 py-4 text-right">Produksi PS</th>
                   <th scope="col" className="px-6 py-4 text-center">Aksi</th>
@@ -1103,46 +1301,53 @@ export function DataManagementView({
               </thead>
               <tbody className="text-sm text-slate-300">
                 {filteredProductionData.length > 0 ? (
-                  filteredProductionData.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-white font-medium">
-                        {row.month} {row.year}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-indigo-400">
-                        {new Intl.NumberFormat('id-ID').format(row.plta)} kWh
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-sky-400">
-                        {new Intl.NumberFormat('id-ID').format(row.miniHydro)} kWh
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-emerald-400">
-                        {new Intl.NumberFormat('id-ID').format(row.pln || 0)} kWh
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-amber-400">
-                        {new Intl.NumberFormat('id-ID').format(
-                          row.ps !== undefined && row.ps !== null 
-                            ? row.ps 
-                            : (row.plta + row.miniHydro) - (row.pln || 0)
-                        )} kWh
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
-                        <button 
-                          onClick={() => checkAuthorization(() => openEditModal(row))}
-                          className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => checkAuthorization(() => handleDelete(row.id))}
-                          className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1 cursor-pointer"
-                        >
-                          Hapus
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  filteredProductionData.map((row) => {
+                    const realKwh = (row.plta || 0) + (row.miniHydro || 0);
+                    const realGwh = realKwh / 1000000;
+                    return (
+                      <tr key={row.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-white font-medium">
+                          {row.month} {row.year}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-indigo-400">
+                          {new Intl.NumberFormat('id-ID').format(row.plta)} kWh
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-sky-400">
+                          {new Intl.NumberFormat('id-ID').format(row.miniHydro)} kWh
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-mono text-right font-bold text-slate-100">
+                          {realGwh > 0 ? `${realGwh.toFixed(2)} GWh` : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-emerald-400">
+                          {new Intl.NumberFormat('id-ID').format(row.pln || 0)} kWh
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-mono text-right text-amber-400">
+                          {new Intl.NumberFormat('id-ID').format(
+                            row.ps !== undefined && row.ps !== null 
+                              ? row.ps 
+                              : Math.max(0, realKwh - (row.pln || 0))
+                          )} kWh
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center space-x-2 font-medium">
+                          <button 
+                            onClick={() => checkAuthorization(() => openEditModal(row))}
+                            className="text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => checkAuthorization(() => handleDelete(row.id))}
+                            className="text-rose-400 hover:text-rose-300 transition-colors px-2 py-1 cursor-pointer"
+                          >
+                            Hapus
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500">
                       <div className="flex flex-col items-center justify-center">
                         <Filter className="h-10 w-10 text-slate-700 mb-3" />
                         <p className="text-slate-400 font-medium text-base">Tidak ada data ditemukan</p>
@@ -1152,7 +1357,262 @@ export function DataManagementView({
                 )}
               </tbody>
             </table>
-          ) : activeTab === 'ps_terjual' ? (
+          ) : activeTab === 'proyeksi' ? (() => {
+            const annualTarget = getRkapTarget('Semua');
+            const totalTargetProdGwh = (annualTarget?.production || 0) / 1000000;
+            const totalProyProdGwh = (annualTarget?.proyeksiProduction || 0) / 1000000;
+            const deltaProdGwh = totalProyProdGwh - totalTargetProdGwh;
+            const pctProd = totalTargetProdGwh > 0 ? (totalProyProdGwh / totalTargetProdGwh) * 100 : 0;
+
+            const totalTargetBruto = annualTarget?.bruto || 0;
+            const totalProyBruto = annualTarget?.proyeksi || 0;
+            const deltaBruto = totalProyBruto - totalTargetBruto;
+            const pctBruto = totalTargetBruto > 0 ? (totalProyBruto / totalTargetBruto) * 100 : 0;
+
+            return (
+              <div className="p-6 space-y-8 bg-slate-950/20">
+                {/* Header Badge */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                  <div>
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Target className="w-5 h-5 text-amber-400" />
+                      Kelola Data Target RKAP vs Proyeksi 2026
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Evaluasi target tahunan RKAP 2026 terhadap estimasi dan prognosis aktual produksi & pendapatan.
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>Prognosa 2026: Produksi {pctProd.toFixed(2)}% | Pendapatan {pctBruto.toFixed(2)}%</span>
+                  </div>
+                </div>
+
+                {/* KPI Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Target RKAP Produksi</span>
+                      <Target className="w-4 h-4 text-indigo-400" />
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-indigo-300">{totalTargetProdGwh.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GWh</div>
+                    <div className="text-[11px] text-slate-500 mt-1">Total Target RKAP Tahun 2026</div>
+                  </div>
+
+                  <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Proyeksi Produksi 2026</span>
+                      <Zap className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-amber-300">{totalProyProdGwh.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GWh</div>
+                    <div className={`text-[11px] mt-1 font-medium ${deltaProdGwh >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {deltaProdGwh >= 0 ? '+' : ''}{deltaProdGwh.toFixed(2)} GWh ({(pctProd - 100).toFixed(2)}% vs RKAP)
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Target RKAP Bruto</span>
+                      <BarChart2 className="w-4 h-4 text-indigo-400" />
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-indigo-300">{formatRupiah(totalTargetBruto)}</div>
+                    <div className="text-[11px] text-slate-500 mt-1">Total Target Pendapatan Bruto</div>
+                  </div>
+
+                  <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Proyeksi Bruto 2026</span>
+                      <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-emerald-300">{formatRupiah(totalProyBruto)}</div>
+                    <div className={`text-[11px] mt-1 font-medium ${deltaBruto >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {deltaBruto >= 0 ? '+' : ''}{formatRupiah(deltaBruto)} ({(pctBruto - 100).toFixed(2)}% vs RKAP)
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table 1: Target vs Proyeksi Produksi Energi */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                  <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/40">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      1. Target RKAP & Proyeksi Produksi Energi 2026 (GWh)
+                    </h4>
+                    <span className="text-xs text-slate-400 font-mono">12 Bulan (Jan - Des)</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-800/60 text-slate-400 text-xs uppercase font-bold tracking-wider">
+                        <tr>
+                          <th scope="col" className="px-5 py-3.5">Bulan</th>
+                          <th scope="col" className="px-5 py-3.5 text-right text-indigo-400">Target RKAP (GWh)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right text-amber-400">Proyeksi 2026 (GWh)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right">Selisih (GWh)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right">% Prognosa</th>
+                          <th scope="col" className="px-5 py-3.5 text-center">Status</th>
+                          <th scope="col" className="px-5 py-3.5 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-xs text-slate-300 divide-y divide-slate-800/50 font-mono">
+                        {MONTHS.map((m) => {
+                          const targetObj = getRkapTarget(m);
+                          const rkapGwh = (targetObj?.production || 0) / 1000000;
+                          const proyGwh = (targetObj?.proyeksiProduction || 0) / 1000000;
+                          const delta = proyGwh - rkapGwh;
+                          const pct = rkapGwh > 0 ? (proyGwh / rkapGwh) * 100 : 0;
+                          const isAbove = delta >= 0;
+
+                          return (
+                            <tr key={m} className="hover:bg-slate-800/30 transition-colors">
+                              <td className="px-5 py-3.5 font-sans font-semibold text-white">{m} 2026</td>
+                              <td className="px-5 py-3.5 text-right text-indigo-300 font-semibold">{rkapGwh.toFixed(2)} GWh</td>
+                              <td className="px-5 py-3.5 text-right text-amber-300 font-bold">{proyGwh.toFixed(2)} GWh</td>
+                              <td className={`px-5 py-3.5 text-right font-bold ${isAbove ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {isAbove ? '+' : ''}{delta.toFixed(2)} GWh
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-bold text-slate-200">{pct.toFixed(2)}%</td>
+                              <td className="px-5 py-3.5 text-center font-sans">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  isAbove 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                }`}>
+                                  {isAbove ? 'Diatas Target' : 'Dibawah Target'}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3.5 text-center font-sans">
+                                <div className="inline-flex items-center justify-center gap-1">
+                                  <button 
+                                    onClick={() => checkAuthorization(() => handleOpenEditProyeksiModal(m))}
+                                    className="p-1.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-semibold text-xs"
+                                    title="Edit Target & Proyeksi"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => checkAuthorization(() => handleOpenDeleteProyeksiModal(m))}
+                                    className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-semibold text-xs"
+                                    title="Hapus / Kosongkan Target & Proyeksi"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Hapus</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-slate-800/80 font-mono text-xs font-bold text-white border-t border-slate-700">
+                        <tr>
+                          <td className="px-5 py-3.5 font-sans">TOTAL TAHUNAN</td>
+                          <td className="px-5 py-3.5 text-right text-indigo-300">{totalTargetProdGwh.toFixed(2)} GWh</td>
+                          <td className="px-5 py-3.5 text-right text-amber-300">{totalProyProdGwh.toFixed(2)} GWh</td>
+                          <td className={`px-5 py-3.5 text-right ${deltaProdGwh >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {deltaProdGwh >= 0 ? '+' : ''}{deltaProdGwh.toFixed(2)} GWh
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-emerald-400">{pctProd.toFixed(2)}%</td>
+                          <td className="px-5 py-3.5 text-center font-sans text-emerald-400">{deltaProdGwh >= 0 ? 'Surplus' : 'Defisit'}</td>
+                          <td className="px-5 py-3.5 text-center font-sans"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Table 2: Target vs Proyeksi Pendapatan Bruto */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                  <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/40">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-400" />
+                      2. Target RKAP & Proyeksi Pendapatan Bruto 2026 (Rp)
+                    </h4>
+                    <span className="text-xs text-slate-400 font-mono">12 Bulan (Jan - Des)</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-800/60 text-slate-400 text-xs uppercase font-bold tracking-wider">
+                        <tr>
+                          <th scope="col" className="px-5 py-3.5">Bulan</th>
+                          <th scope="col" className="px-5 py-3.5 text-right text-indigo-400">Target RKAP Bruto (Rp)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right text-emerald-400">Proyeksi Bruto (Rp)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right">Selisih (Rp)</th>
+                          <th scope="col" className="px-5 py-3.5 text-right">% Prognosa</th>
+                          <th scope="col" className="px-5 py-3.5 text-center">Status</th>
+                          <th scope="col" className="px-5 py-3.5 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-xs text-slate-300 divide-y divide-slate-800/50 font-mono">
+                        {MONTHS.map((m) => {
+                          const targetObj = getRkapTarget(m);
+                          const rkapRp = targetObj?.bruto || 0;
+                          const proyRp = targetObj?.proyeksi || 0;
+                          const delta = proyRp - rkapRp;
+                          const pct = rkapRp > 0 ? (proyRp / rkapRp) * 100 : 0;
+                          const isAbove = delta >= 0;
+
+                          return (
+                            <tr key={m} className="hover:bg-slate-800/30 transition-colors">
+                              <td className="px-5 py-3.5 font-sans font-semibold text-white">{m} 2026</td>
+                              <td className="px-5 py-3.5 text-right text-indigo-300 font-semibold">{formatRupiah(rkapRp)}</td>
+                              <td className="px-5 py-3.5 text-right text-emerald-300 font-bold">{formatRupiah(proyRp)}</td>
+                              <td className={`px-5 py-3.5 text-right font-bold ${isAbove ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {isAbove ? '+' : ''}{formatRupiah(delta)}
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-bold text-slate-200">{pct.toFixed(2)}%</td>
+                              <td className="px-5 py-3.5 text-center font-sans">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  isAbove 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                }`}>
+                                  {isAbove ? 'Diatas Target' : 'Dibawah Target'}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3.5 text-center font-sans">
+                                <div className="inline-flex items-center justify-center gap-1">
+                                  <button 
+                                    onClick={() => checkAuthorization(() => handleOpenEditProyeksiModal(m))}
+                                    className="p-1.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-semibold text-xs"
+                                    title="Edit Target & Proyeksi"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => checkAuthorization(() => handleOpenDeleteProyeksiModal(m))}
+                                    className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-semibold text-xs"
+                                    title="Hapus / Kosongkan Target & Proyeksi"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Hapus</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-slate-800/80 font-mono text-xs font-bold text-white border-t border-slate-700">
+                        <tr>
+                          <td className="px-5 py-3.5 font-sans">TOTAL TAHUNAN</td>
+                          <td className="px-5 py-3.5 text-right text-indigo-300">{formatRupiah(totalTargetBruto)}</td>
+                          <td className="px-5 py-3.5 text-right text-emerald-300">{formatRupiah(totalProyBruto)}</td>
+                          <td className={`px-5 py-3.5 text-right ${deltaBruto >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {deltaBruto >= 0 ? '+' : ''}{formatRupiah(deltaBruto)}
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-emerald-400">{pctBruto.toFixed(2)}%</td>
+                          <td className="px-5 py-3.5 text-center font-sans text-emerald-400">{deltaBruto >= 0 ? 'Surplus' : 'Defisit'}</td>
+                          <td className="px-5 py-3.5 text-center font-sans"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })() : activeTab === 'ps_terjual' ? (
             <div className="p-6 space-y-8 bg-slate-950/20">
               {groupedPsData.length > 0 ? (
                 groupedPsData.map((periodGroup) => (
@@ -2022,6 +2482,190 @@ export function DataManagementView({
                   <button
                     type="button"
                     onClick={() => setDeleteConfirm({ isOpen: false, id: null, tabName: '' })}
+                    className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-700 shadow-sm px-4 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none sm:mt-0 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Edit Target & Proyeksi */}
+      <AnimatePresence>
+        {proyeksiEditModal.isOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity z-0" 
+                aria-hidden="true" 
+                onClick={() => setProyeksiEditModal(prev => ({ ...prev, isOpen: false }))}
+              />
+
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative z-10 inline-block align-middle bg-slate-900 border border-slate-700 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:max-w-lg w-full"
+              >
+                <form onSubmit={handleSaveProyeksi}>
+                  <div className="bg-slate-900 px-6 pt-6 pb-4 sm:pb-6">
+                    <div className="flex items-center gap-3 border-b border-slate-800 pb-4 mb-4">
+                      <div className="flex items-center justify-center h-10 w-10 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                        <Target className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">
+                          Edit Target & Proyeksi {proyeksiEditModal.month} 2026
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Ubah target RKAP dan nilai proyeksi untuk bulan {proyeksiEditModal.month}.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 text-xs">
+                      {/* Target RKAP Produksi & Proyeksi Produksi */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-800/40 border border-slate-800 rounded-xl">
+                        <div className="col-span-2 text-indigo-400 font-bold flex items-center gap-1.5">
+                          <Zap className="w-4 h-4" /> Produksi Energi (GWh)
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 mb-1 font-medium">Target RKAP (GWh)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={proyeksiEditModal.targetProductionGwh}
+                            onChange={(e) => setProyeksiEditModal(prev => ({ ...prev, targetProductionGwh: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 mb-1 font-medium">Proyeksi 2026 (GWh)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={proyeksiEditModal.proyeksiProductionGwh}
+                            onChange={(e) => setProyeksiEditModal(prev => ({ ...prev, proyeksiProductionGwh: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-amber-300 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Target RKAP Bruto & Proyeksi Bruto */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-800/40 border border-slate-800 rounded-xl">
+                        <div className="col-span-2 text-emerald-400 font-bold flex items-center gap-1.5">
+                          <TrendingUp className="w-4 h-4" /> Pendapatan Bruto (Rp)
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 mb-1 font-medium">Target RKAP Bruto (Rp)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={proyeksiEditModal.targetBrutoRp}
+                            onChange={(e) => setProyeksiEditModal(prev => ({ ...prev, targetBrutoRp: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 mb-1 font-medium">Proyeksi Bruto (Rp)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={proyeksiEditModal.proyeksiBrutoRp}
+                            onChange={(e) => setProyeksiEditModal(prev => ({ ...prev, proyeksiBrutoRp: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-slate-800 text-emerald-300 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800/40 px-6 py-4 sm:flex sm:flex-row-reverse border-t border-slate-800 gap-3">
+                    <button
+                      type="submit"
+                      className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-500 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                    >
+                      Simpan Perubahan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProyeksiEditModal(prev => ({ ...prev, isOpen: false }))}
+                      className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-700 shadow-sm px-4 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none sm:mt-0 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Hapus Target & Proyeksi */}
+      <AnimatePresence>
+        {proyeksiDeleteModal.isOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity z-0" 
+                aria-hidden="true" 
+                onClick={() => setProyeksiDeleteModal({ isOpen: false, month: '' })}
+              />
+
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative z-10 inline-block align-middle bg-slate-900 border border-slate-700 rounded-2xl text-left overflow-hidden shadow-2xl sm:my-8 sm:max-w-md w-full"
+              >
+                <div className="bg-slate-900 px-6 pt-6 pb-4 sm:pb-6">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-rose-500/10 sm:mx-0 sm:h-10 sm:w-10">
+                      <Trash2 className="h-6 w-6 text-rose-500" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <h3 className="text-lg leading-6 font-bold text-white mb-2">
+                        Konfirmasi Hapus Target & Proyeksi
+                      </h3>
+                      <p className="text-sm text-slate-300">
+                        Apakah Anda yakin ingin menghapus / mengosongkan data Target RKAP & Proyeksi untuk bulan <span className="font-semibold text-rose-400">{proyeksiDeleteModal.month} 2026</span>?
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-slate-800/40 px-6 py-4 sm:flex sm:flex-row-reverse border-t border-slate-800 gap-3">
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteProyeksi}
+                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-rose-600 text-base font-semibold text-white hover:bg-rose-500 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors cursor-pointer"
+                  >
+                    Hapus Data
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProyeksiDeleteModal({ isOpen: false, month: '' })}
                     className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-700 shadow-sm px-4 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none sm:mt-0 sm:w-auto sm:text-sm transition-colors cursor-pointer"
                   >
                     Batal
