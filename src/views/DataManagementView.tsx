@@ -1451,7 +1451,6 @@ export function DataManagementView({
                           <th scope="col" className="px-5 py-3.5 text-right text-indigo-400">Target RKAP (GWh)</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-sky-400">Realisasi (GWh)</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-amber-400">Proyeksi 2026 (GWh)</th>
-                          <th scope="col" className="px-5 py-3.5 text-right">Selisih Proy (GWh)</th>
                           <th scope="col" className="px-5 py-3.5 text-right">% Prognosa</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Status</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Aksi</th>
@@ -1473,9 +1472,6 @@ export function DataManagementView({
                               <td className="px-5 py-3.5 text-right text-indigo-300 font-semibold">{rkapGwh.toFixed(2)} GWh</td>
                               <td className="px-5 py-3.5 text-right text-sky-300 font-semibold">{actualGwh.toFixed(2)} GWh</td>
                               <td className="px-5 py-3.5 text-right text-amber-300 font-bold">{proyGwh.toFixed(2)} GWh</td>
-                              <td className={`px-5 py-3.5 text-right font-bold ${isAbove ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {isAbove ? '+' : ''}{delta.toFixed(2)} GWh
-                              </td>
                               <td className="px-5 py-3.5 text-right font-bold text-slate-200">{pct.toFixed(2)}%</td>
                               <td className="px-5 py-3.5 text-center font-sans">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1516,9 +1512,6 @@ export function DataManagementView({
                           <td className="px-5 py-3.5 text-right text-indigo-300">{totalTargetProdGwh.toFixed(2)} GWh</td>
                           <td className="px-5 py-3.5 text-right text-sky-300">{totalActualProdGwh.toFixed(2)} GWh</td>
                           <td className="px-5 py-3.5 text-right text-amber-300">{totalProyProdGwh.toFixed(2)} GWh</td>
-                          <td className={`px-5 py-3.5 text-right ${deltaProdGwh >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {deltaProdGwh >= 0 ? '+' : ''}{deltaProdGwh.toFixed(2)} GWh
-                          </td>
                           <td className="px-5 py-3.5 text-right text-emerald-400">{pctProd.toFixed(2)}%</td>
                           <td className="px-5 py-3.5 text-center font-sans text-emerald-400">{deltaProdGwh >= 0 ? 'Surplus' : 'Defisit'}</td>
                           <td className="px-5 py-3.5 text-center font-sans"></td>
@@ -1545,7 +1538,6 @@ export function DataManagementView({
                           <th scope="col" className="px-5 py-3.5 text-right text-indigo-400">Target RKAP Bruto (Rp)</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-sky-400">Realisasi Bruto (Rp)</th>
                           <th scope="col" className="px-5 py-3.5 text-right text-emerald-400">Proyeksi Bruto (Rp)</th>
-                          <th scope="col" className="px-5 py-3.5 text-right">Selisih Proy (Rp)</th>
                           <th scope="col" className="px-5 py-3.5 text-right">% Prognosa</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Status</th>
                           <th scope="col" className="px-5 py-3.5 text-center">Aksi</th>
@@ -1567,9 +1559,6 @@ export function DataManagementView({
                               <td className="px-5 py-3.5 text-right text-indigo-300 font-semibold">{formatRupiah(rkapRp)}</td>
                               <td className="px-5 py-3.5 text-right text-sky-300 font-semibold">{formatRupiah(actualRp)}</td>
                               <td className="px-5 py-3.5 text-right text-emerald-300 font-bold">{formatRupiah(proyRp)}</td>
-                              <td className={`px-5 py-3.5 text-right font-bold ${isAbove ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {isAbove ? '+' : ''}{formatRupiah(delta)}
-                              </td>
                               <td className="px-5 py-3.5 text-right font-bold text-slate-200">{pct.toFixed(2)}%</td>
                               <td className="px-5 py-3.5 text-center font-sans">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1610,9 +1599,6 @@ export function DataManagementView({
                           <td className="px-5 py-3.5 text-right text-indigo-300">{formatRupiah(totalTargetBruto)}</td>
                           <td className="px-5 py-3.5 text-right text-sky-300">{formatRupiah(totalActualBruto)}</td>
                           <td className="px-5 py-3.5 text-right text-emerald-300">{formatRupiah(totalProyBruto)}</td>
-                          <td className={`px-5 py-3.5 text-right ${deltaBruto >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {deltaBruto >= 0 ? '+' : ''}{formatRupiah(deltaBruto)}
-                          </td>
                           <td className="px-5 py-3.5 text-right text-emerald-400">{pctBruto.toFixed(2)}%</td>
                           <td className="px-5 py-3.5 text-center font-sans text-emerald-400">{deltaBruto >= 0 ? 'Surplus' : 'Defisit'}</td>
                           <td className="px-5 py-3.5 text-center font-sans"></td>
